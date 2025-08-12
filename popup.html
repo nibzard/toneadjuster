@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tone Adjuster</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="popup-container">
+        <!-- Header -->
+        <header class="popup-header">
+            <div class="logo-section">
+                <div class="logo">✨</div>
+                <h1 class="title">Tone Adjuster</h1>
+            </div>
+            <div class="status-indicator" id="statusIndicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span class="status-text" id="statusText">Checking...</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="popup-main">
+            <!-- AI Status Section -->
+            <section class="status-section" id="statusSection">
+                <div class="status-card" id="statusCard">
+                    <div class="status-icon" id="statusIcon">⚡</div>
+                    <div class="status-content">
+                        <h3 class="status-title" id="statusTitle">Initializing...</h3>
+                        <p class="status-message" id="statusMessage">Checking Chrome AI availability</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Actions Section -->
+            <section class="actions-section" id="actionsSection" style="display: none;">
+                <h3 class="section-title">Quick Tone Adjustment</h3>
+                <p class="section-subtitle">Select text on any page, right-click, and choose your tone</p>
+                
+                <div class="tone-grid">
+                    <button class="tone-button" data-tone="formal">
+                        <span class="tone-icon">📋</span>
+                        <span class="tone-label">Formal</span>
+                        <span class="tone-desc">Professional & structured</span>
+                    </button>
+                    <button class="tone-button" data-tone="friendly">
+                        <span class="tone-icon">😊</span>
+                        <span class="tone-label">Friendly</span>
+                        <span class="tone-desc">Warm & approachable</span>
+                    </button>
+                    <button class="tone-button" data-tone="confident">
+                        <span class="tone-icon">💪</span>
+                        <span class="tone-label">Confident</span>
+                        <span class="tone-desc">Assertive & strong</span>
+                    </button>
+                    <button class="tone-button" data-tone="concise">
+                        <span class="tone-icon">⚡</span>
+                        <span class="tone-label">Concise</span>
+                        <span class="tone-desc">Brief & to the point</span>
+                    </button>
+                    <button class="tone-button" data-tone="empathetic">
+                        <span class="tone-icon">🤝</span>
+                        <span class="tone-label">Empathetic</span>
+                        <span class="tone-desc">Understanding & caring</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- How to Use Section -->
+            <section class="help-section">
+                <h3 class="section-title">How to Use</h3>
+                <div class="help-steps">
+                    <div class="help-step">
+                        <span class="step-number">1</span>
+                        <div class="step-content">
+                            <strong>Select text</strong> on any webpage or text field
+                        </div>
+                    </div>
+                    <div class="help-step">
+                        <span class="step-number">2</span>
+                        <div class="step-content">
+                            <strong>Right-click</strong> and choose "Adjust tone"
+                        </div>
+                    </div>
+                    <div class="help-step">
+                        <span class="step-number">3</span>
+                        <div class="step-content">
+                            <strong>Select your tone</strong> and review the result
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Privacy Notice -->
+            <section class="privacy-section">
+                <div class="privacy-card">
+                    <div class="privacy-icon">🔒</div>
+                    <div class="privacy-content">
+                        <h4>Privacy First</h4>
+                        <p>All text processing happens on your device using Chrome's built-in AI. Your text never leaves your browser.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="popup-footer">
+            <button class="footer-button" id="settingsButton" title="Settings">
+                <span class="button-icon">⚙️</span>
+            </button>
+            <button class="footer-button" id="helpButton" title="Help">
+                <span class="button-icon">❓</span>
+            </button>
+            <button class="footer-button" id="refreshButton" title="Refresh Status">
+                <span class="button-icon">🔄</span>
+            </button>
+        </footer>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>

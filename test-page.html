@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tone Adjuster Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #2563eb;
+        }
+        input, textarea, .editable {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .editable {
+            min-height: 100px;
+            background: white;
+        }
+        .test-text {
+            background: #fff3cd;
+            padding: 10px;
+            border-left: 4px solid #ffc107;
+            margin: 10px 0;
+            font-style: italic;
+        }
+        .non-editable {
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .instructions {
+            background: #d1ecf1;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .scenario {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Tone Adjuster Extension Test Page</h1>
+    
+    <div class="instructions">
+        <h3>📋 Testing Instructions</h3>
+        <ol>
+            <li>Make sure the Tone Adjuster extension is installed and enabled</li>
+            <li>Select text in the editable fields below</li>
+            <li>Look for the tone adjustment tooltip to appear</li>
+            <li>Right-click selected text to see context menu options</li>
+            <li>Test each tone option and verify the results</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 Input Field Tests</h3>
+        <p>Test text selection and adjustment in standard input fields:</p>
+        
+        <label for="email-input"><strong>Email Input:</strong></label>
+        <input type="email" id="email-input" value="hey john, can you send me that report asap? thx" placeholder="Type or edit text here...">
+        
+        <label for="text-input"><strong>Text Input:</strong></label>
+        <input type="text" id="text-input" value="I think maybe we should probably consider looking into this issue sometime soon" placeholder="Type or edit text here...">
+        
+        <label for="search-input"><strong>Search Input:</strong></label>
+        <input type="search" id="search-input" value="urgent help needed with project" placeholder="Search terms...">
+    </div>
+
+    <div class="test-section">
+        <h3>📄 Textarea Tests</h3>
+        <p>Test with multi-line text content:</p>
+        
+        <label for="message-textarea"><strong>Message Textarea:</strong></label>
+        <textarea id="message-textarea" rows="4" placeholder="Type your message here...">Hi Sarah,
+
+I wanted to reach out about the project deadline. We're running a bit behind and I'm worried we might not make it. Can you help me figure out what we should do? I really need your advice on this.
+
+Thanks so much,
+Mike</textarea>
+        
+        <label for="feedback-textarea"><strong>Feedback Textarea:</strong></label>
+        <textarea id="feedback-textarea" rows="3" placeholder="Your feedback...">Your presentation was okay but there were some issues with the data. You should probably fix those things before the next meeting. Also the slides looked kind of messy.</textarea>
+    </div>
+
+    <div class="test-section">
+        <h3>✏️ ContentEditable Tests</h3>
+        <p>Test with rich text editable content:</p>
+        
+        <div class="scenario">
+            <strong>Email Composition:</strong>
+            <div contenteditable="true" class="editable" id="email-compose">
+                <p><strong>Subject:</strong> Project Update</p>
+                <br>
+                <p>Hey team,</p>
+                <p>So we've got this problem with the project and I'm not really sure what to do about it. The client is getting impatient and keeps asking for updates. I think we need to do something fast but I don't know what. Can someone please help me out here?</p>
+                <p>Thanks,<br>Alex</p>
+            </div>
+        </div>
+        
+        <div class="scenario">
+            <strong>Social Media Post:</strong>
+            <div contenteditable="true" class="editable" id="social-post">
+                <p>ugh another monday morning meeting that could have been an email 😴 why do we do this to ourselves? anyway hope everyone has a good week i guess...</p>
+            </div>
+        </div>
+        
+        <div class="scenario">
+            <strong>Customer Support Response:</strong>
+            <div contenteditable="true" class="editable" id="support-response">
+                <p>We received your complaint about the product not working. Unfortunately, this happens sometimes and there's not much we can do about it. You can try returning it if you want but the return policy is pretty strict.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎯 Tone-Specific Test Cases</h3>
+        <p>Test sentences designed for specific tone adjustments:</p>
+        
+        <div class="scenario">
+            <strong>For FORMAL tone:</strong>
+            <input type="text" value="hey can you please help me out with this thing? it's kinda urgent lol" style="margin: 5px 0;">
+            <div class="test-text">Expected: Professional, structured language without casual expressions</div>
+        </div>
+        
+        <div class="scenario">
+            <strong>For FRIENDLY tone:</strong>
+            <input type="text" value="Submit your report by 5 PM today. No exceptions." style="margin: 5px 0;">
+            <div class="test-text">Expected: Warm, approachable while maintaining the message</div>
+        </div>
+        
+        <div class="scenario">
+            <strong>For CONFIDENT tone:</strong>
+            <input type="text" value="I think maybe we should possibly consider perhaps looking into this issue" style="margin: 5px 0;">
+            <div class="test-text">Expected: Remove hesitant language, use strong decisive words</div>
+        </div>
+        
+        <div class="scenario">
+            <strong>For CONCISE tone:</strong>
+            <textarea rows="3" style="margin: 5px 0;">I wanted to reach out to you today to let you know that we have been working on the project that you assigned to us last week, and I wanted to give you an update on our progress so far. We have made some good progress, but there are still some things that need to be addressed before we can consider the project to be complete.</textarea>
+            <div class="test-text">Expected: Much shorter while preserving key information</div>
+        </div>
+        
+        <div class="scenario">
+            <strong>For EMPATHETIC tone:</strong>
+            <input type="text" value="Your application has been rejected due to insufficient qualifications." style="margin: 5px 0;">
+            <div class="test-text">Expected: Understanding, supportive while delivering the message</div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🚫 Non-Editable Content (Should NOT trigger tooltip)</h3>
+        <p>These areas should not show the tone adjustment tooltip:</p>
+        
+        <div class="non-editable">
+            <p>This is a regular paragraph. Selecting this text should not trigger the tone adjustment tooltip since it's not editable.</p>
+        </div>
+        
+        <blockquote style="border-left: 3px solid #007bff; padding: 10px; margin: 10px 0; background: #f8f9fa;">
+            This is a blockquote element. It should also not trigger the tooltip when selected.
+        </blockquote>
+        
+        <code style="background: #f1f3f4; padding: 2px 4px; border-radius: 3px;">
+            This is inline code text that should not be adjustable.
+        </code>
+    </div>
+
+    <div class="test-section">
+        <h3>🔤 Special Character Tests</h3>
+        <p>Test with various special characters and formatting:</p>
+        
+        <input type="text" value="Hello! 👋 How are you? 🙂 This costs $49.99 (50% off!). Email: test@example.com" style="margin: 5px 0;">
+        
+        <textarea rows="2" style="margin: 5px 0;">Multi-language test: Hola, ¿cómo estás? 你好吗？ This text has émojis 🎉, spëcial characters, and números 123.</textarea>
+        
+        <div contenteditable="true" class="editable">
+            <p>Rich text with <strong>bold</strong>, <em>italic</em>, and <a href="#">links</a>. Also includes "quotes" and 'apostrophes' plus symbols like @#$%^&*().</p>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>⚡ Performance Test</h3>
+        <p>Large text blocks to test processing performance:</p>
+        
+        <textarea rows="8" style="margin: 5px 0;">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt.</textarea>
+    </div>
+
+    <div class="instructions" style="margin-top: 40px;">
+        <h3>✅ Manual Testing Checklist</h3>
+        <p><strong>For each editable field above:</strong></p>
+        <ul>
+            <li>Select text and verify tooltip appears</li>
+            <li>Check tooltip positioning (should be visible within viewport)</li>
+            <li>Test all 5 tone options</li>
+            <li>Verify text replacement works correctly</li>
+            <li>Test right-click context menu functionality</li>
+            <li>Check error handling (if AI is unavailable)</li>
+            <li>Verify no tooltip appears for non-editable content</li>
+        </ul>
+        
+        <p><strong>Additional tests:</strong></p>
+        <ul>
+            <li>Open extension popup and check status</li>
+            <li>Test with Chrome AI disabled/unavailable</li>
+            <li>Check browser console for errors</li>
+            <li>Monitor network tab for external requests (should be none)</li>
+            <li>Test keyboard navigation and accessibility</li>
+        </ul>
+    </div>
+
+    <script>
+        // Add some interactivity for testing
+        console.log('Tone Adjuster test page loaded');
+        
+        // Log text selections for debugging
+        document.addEventListener('selectionchange', () => {
+            const selection = window.getSelection();
+            if (selection.toString().length > 0) {
+                console.log('Text selected:', selection.toString());
+            }
+        });
+    </script>
+</body>
+</html>
