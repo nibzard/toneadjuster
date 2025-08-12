@@ -14,11 +14,12 @@ class ToneAdjuster {
         
         // Tone options
         this.tones = [
+            { id: 'polish', label: 'Polish', icon: '💎' },
             { id: 'formal', label: 'Formal', icon: '📋' },
             { id: 'friendly', label: 'Friendly', icon: '😊' },
             { id: 'confident', label: 'Confident', icon: '💪' },
             { id: 'concise', label: 'Concise', icon: '⚡' },
-            { id: 'empathetic', label: 'Empathetic', icon: '🤝' }
+            { id: 'unhinged', label: 'Unhinged', icon: '🤪' }
         ];
         
         this.init();
@@ -129,7 +130,7 @@ class ToneAdjuster {
         // Create tooltip element
         this.tooltip = document.createElement('div');
         this.tooltip.className = 'tone-adjuster-tooltip';
-        this.tooltip.innerHTML = this.createTooltipContent();
+        this.tooltip.appendChild(this.createTooltipContent());
         
         // Add to DOM
         document.body.appendChild(this.tooltip);
@@ -246,6 +247,15 @@ class ToneAdjuster {
         this.showProcessingState();
         
         try {
+            // Validate inputs
+            if (!this.selectedText || this.selectedText.trim().length === 0) {
+                throw new Error('No text selected');
+            }
+            
+            if (!tone || typeof tone !== 'string') {
+                throw new Error('Invalid tone specified');
+            }
+            
             // Send message to background script for AI processing
             const response = await chrome.runtime.sendMessage({
                 action: 'rewriteText',
@@ -253,14 +263,32 @@ class ToneAdjuster {
                 tone: tone
             });
             
+            if (!response) {
+                throw new Error('No response received from background script');
+            }
+            
             if (response.success) {
+                if (!response.adjustedText) {
+                    throw new Error('No adjusted text received');
+                }
                 this.showPreview(response.adjustedText, tone);
             } else {
                 this.showError(response.error || 'Failed to adjust tone');
             }
         } catch (error) {
             console.error('Tone adjustment error:', error);
-            this.showError('Unable to connect to tone adjustment service');
+            
+            // Provide user-friendly error messages
+            let errorMessage = 'Unable to adjust tone';
+            if (error.message.includes('No text selected')) {
+                errorMessage = 'Please select some text first';
+            } else if (error.message.includes('connect')) {
+                errorMessage = 'Connection error - please try again';
+            } else if (error.message.includes('timeout')) {
+                errorMessage = 'Request timed out - please try again';
+            }
+            
+            this.showError(errorMessage);
         } finally {
             this.isProcessing = false;
         }
@@ -322,18 +350,30 @@ class ToneAdjuster {
         const processingState = this.tooltip.querySelector('.processing-state');
         
         if (processingState) {
-            processingState.innerHTML = `
-                <div class="error-state">
-                    <span class="error-icon">⚠️</span>
-                    <span class="error-text">${errorMessage}</span>
-                    <button class="retry-btn">Try Again</button>
-                </div>
-            `;
+            // Clear existing content safely
+            processingState.textContent = '';
             
-            const retryBtn = processingState.querySelector('.retry-btn');
-            if (retryBtn) {
-                retryBtn.addEventListener('click', this.showToneButtons.bind(this));
-            }
+            const errorState = document.createElement('div');
+            errorState.className = 'error-state';
+            
+            const errorIcon = document.createElement('span');
+            errorIcon.className = 'error-icon';
+            errorIcon.textContent = '⚠️';
+            
+            const errorText = document.createElement('span');
+            errorText.className = 'error-text';
+            errorText.textContent = errorMessage;
+            
+            const retryBtn = document.createElement('button');
+            retryBtn.className = 'retry-btn';
+            retryBtn.textContent = 'Try Again';
+            retryBtn.addEventListener('click', this.showToneButtons.bind(this));
+            
+            errorState.appendChild(errorIcon);
+            errorState.appendChild(errorText);
+            errorState.appendChild(retryBtn);
+            
+            processingState.appendChild(errorState);
         }
     }
     
@@ -395,10 +435,17 @@ class ToneAdjuster {
     showSuccessFeedback() {
         const feedback = document.createElement('div');
         feedback.className = 'tone-adjuster-success';
-        feedback.innerHTML = `
-            <span class="success-icon">✓</span>
-            <span class="success-text">Tone adjusted successfully</span>
-        `;
+        
+        const successIcon = document.createElement('span');
+        successIcon.className = 'success-icon';
+        successIcon.textContent = '✓';
+        
+        const successText = document.createElement('span');
+        successText.className = 'success-text';
+        successText.textContent = 'Tone adjusted successfully';
+        
+        feedback.appendChild(successIcon);
+        feedback.appendChild(successText);
         
         document.body.appendChild(feedback);
         

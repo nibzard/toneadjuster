@@ -29,11 +29,12 @@ Users will be able to activate "The Tone Adjuster" in two ways:
 
 Upon invoking the tool, a user-friendly interface will appear, offering a selection of predefined tones. The initial set of tones will include:
 
+*   **Polish:** (Default) For correcting grammar, fixing errors, and improving overall clarity and fluency.
 *   **Formal:** For professional correspondence, reports, and official documents.
 *   **Friendly:** To make communication more approachable and personable.
 *   **Confident:** For assertive and persuasive writing.
 *   **Concise:** To shorten the text while retaining the core message.
-*   **Empathetic:** To convey understanding and compassion.
+*   **Unhinged:** For generating humorous, chaotic, or surprising text for creative or entertainment purposes.
 
 **3.3. Presenting the Adjusted Text**
 

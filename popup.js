@@ -72,13 +72,13 @@ class PopupManager {
         this.updateStatus('loading', 'Checking AI availability...', 'Connecting to Chrome AI');
 
         try {
-            // Check if chrome.ai is available
-            if (!chrome?.ai) {
-                throw new Error('Chrome AI API not available');
+            // Check if LanguageModel API is available
+            if (!window.ai?.LanguageModel) {
+                throw new Error('Chrome AI LanguageModel API not available');
             }
 
-            // Check if we can create a session
-            const capabilities = await chrome.ai.canCreateSession();
+            // Check model availability
+            const capabilities = await window.ai.LanguageModel.availability();
             
             if (capabilities === 'no') {
                 throw new Error('Chrome AI is not available on this device');
@@ -91,7 +91,7 @@ class PopupManager {
             }
 
             // Try to create a test session
-            const session = await chrome.ai.createSession();
+            const session = await window.ai.LanguageModel.create();
             await session.destroy();
 
             this.aiStatus = 'available';
@@ -154,9 +154,9 @@ class PopupManager {
             attempts++;
             
             try {
-                const capabilities = await chrome.ai.canCreateSession();
+                const capabilities = await window.ai.LanguageModel.availability();
                 
-                if (capabilities === 'readily') {
+                if (capabilities === 'readily' || capabilities === 'available') {
                     this.updateStatus('success', 'AI Ready', 'Download complete! Chrome AI is now ready.');
                     this.showActionsSection();
                     return;
@@ -206,13 +206,26 @@ class PopupManager {
             ];
         }
 
-        errorHelp.innerHTML = `
-            <h4>${helpTitle}</h4>
-            <p>${helpText}</p>
-            <ul style="margin-top: 8px; padding-left: 16px;">
-                ${steps.map(step => `<li style="font-size: 11px; margin-bottom: 4px;">${step}</li>`).join('')}
-            </ul>
-        `;
+        // Create help content safely
+        const title = document.createElement('h4');
+        title.textContent = helpTitle;
+        
+        const text = document.createElement('p');
+        text.textContent = helpText;
+        
+        const list = document.createElement('ul');
+        list.style.cssText = 'margin-top: 8px; padding-left: 16px;';
+        
+        steps.forEach(step => {
+            const listItem = document.createElement('li');
+            listItem.style.cssText = 'font-size: 11px; margin-bottom: 4px;';
+            listItem.textContent = step;
+            list.appendChild(listItem);
+        });
+        
+        errorHelp.appendChild(title);
+        errorHelp.appendChild(text);
+        errorHelp.appendChild(list);
 
         this.elements.statusSection.appendChild(errorHelp);
     }

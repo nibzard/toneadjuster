@@ -117,7 +117,7 @@ John
 
 **Expected Results**:
 - Tooltip appears near selected text
-- Contains all 5 tone options (Formal, Friendly, Confident, Concise, Empathetic)
+- Contains all 6 tone options (Polish, Formal, Friendly, Confident, Concise, Unhinged)
 - Positioned appropriately within viewport
 - Dismisses when clicking outside
 
@@ -171,7 +171,7 @@ John
 
 **Expected Results**:
 - "Adjust Tone" appears in context menu
-- Submenu shows all 5 tone options
+- Submenu shows all 6 tone options
 - Menu items are clickable
 - Icons display correctly (if present)
 
@@ -257,25 +257,46 @@ John
 
 ---
 
-### TC012: Tone Adjustment - Empathetic
-**Objective**: Test empathetic tone adjustment
-**Test Text**: "Your request has been denied due to insufficient information."
+### TC012: Tone Adjustment - Polish
+**Objective**: Test grammar, spelling, and fluency correction
+**Test Text**: "i think we shud do this its more better for the team cause they was waiting"
 **Steps**:
-1. Select the text
-2. Apply empathetic tone
-3. Check for understanding and supportive language
+1. Select the test text
+2. Click "Polish" tone button
+3. Wait for processing
+4. Review suggested text
 
 **Expected Results**:
-- Softer, more understanding language
-- Offers help or next steps
-- Maintains necessary information
+- Grammatical errors are corrected (e.g., "they was" -> "they were")
+- Spelling errors are corrected (e.g., "shud" -> "should")
+- Fluency is improved (e.g., "its more better" -> "it is better" or "it is more effective")
+- Original meaning is preserved.
 
 **Status**: [ ] Pass [ ] Fail  
 **Adjusted Text**: _______________________
 
 ---
 
-### TC013: Error Handling - AI Unavailable
+### TC013: Tone Adjustment - Unhinged
+**Objective**: Test creative and chaotic text generation
+**Test Text**: "I need to finish this report by Friday."
+**Steps**:
+1. Select the test text
+2. Click "Unhinged" tone button
+3. Wait for processing
+4. Review suggested text
+
+**Expected Results**:
+- Text is rewritten in a humorous, exaggerated, or surreal manner.
+- Output is unexpected but related to the original concept of "report" and "Friday".
+- The tone is clearly not serious or professional.
+
+**Status**: [ ] Pass [ ] Fail  
+**Adjusted Text**: _______________________
+
+---
+
+### TC014: Error Handling - AI Unavailable
 **Objective**: Test behavior when Chrome AI is not available
 **Steps**:
 1. Disable Chrome AI features (if possible)
@@ -293,7 +314,7 @@ John
 
 ---
 
-### TC014: Error Handling - Network Issues
+### TC015: Error Handling - Network Issues
 **Objective**: Test behavior during processing failures
 **Steps**:
 1. Simulate processing failure (disconnect network if needed)
@@ -311,7 +332,7 @@ John
 
 ---
 
-### TC015: Text Replacement Accuracy
+### TC016: Text Replacement Accuracy
 **Objective**: Verify text replacement works correctly
 **Test Text**: "This is the original text that will be replaced."
 **Steps**:
@@ -332,7 +353,7 @@ John
 
 ---
 
-### TC016: Large Text Handling
+### TC017: Large Text Handling
 **Objective**: Test with large text selections
 **Test Text**: _[Use a paragraph of 500+ words]_
 **Steps**:
@@ -351,7 +372,7 @@ John
 
 ---
 
-### TC017: Special Characters Handling
+### TC018: Special Characters Handling
 **Objective**: Test with text containing special characters
 **Test Text**: "Hello! How are you? 🙂 This costs $50.99 (50% off). Email: test@example.com"
 **Steps**:
@@ -370,7 +391,7 @@ John
 
 ---
 
-### TC018: Multiple Quick Adjustments
+### TC019: Multiple Quick Adjustments
 **Objective**: Test rapid successive tone adjustments
 **Steps**:
 1. Select text and apply one tone
@@ -389,7 +410,7 @@ John
 
 ---
 
-### TC019: Privacy Validation
+### TC020: Privacy Validation
 **Objective**: Verify no external network requests
 **Steps**:
 1. Open browser developer tools (Network tab)
@@ -408,7 +429,7 @@ John
 
 ---
 
-### TC020: Browser Compatibility
+### TC021: Browser Compatibility
 **Objective**: Test across different Chrome versions and platforms
 **Steps**:
 1. Test on Chrome 127+ (minimum supported)
@@ -475,7 +496,7 @@ John
 
 ## Test Execution Summary
 
-**Total Test Cases**: 20  
+**Total Test Cases**: 21  
 **Passed**: ___  
 **Failed**: ___  
 **Blocked**: ___  

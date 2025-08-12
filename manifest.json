@@ -3,11 +3,16 @@
     "name": "The Tone Adjuster",
     "version": "1.0.0",
     "description": "Adjust the tone of your text with AI-powered suggestions, right in your browser.",
+    "minimum_chrome_version": "138",
     
     "permissions": [
         "ai",
         "tabs",
         "contextMenus"
+    ],
+    
+    "host_permissions": [
+        "<all_urls>"
     ],
     
     "background": {
