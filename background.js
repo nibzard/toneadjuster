@@ -1,12 +1,9 @@
 // Background service worker for The Tone Adjuster Chrome extension
-// Handles AI session management, context menus, and text rewriting
+// Handles context menus and delegates AI operations to content scripts
 
 class ToneAdjuster {
   constructor() {
-    this.aiSession = null;
     this.isInitialized = false;
-    this.sessionTimeout = null;
-    this.sessionIdleTime = 5 * 60 * 1000; // 5 minutes
     this.toneOptions = {
       polish: 'Polish',
       formal: 'Formal',
@@ -21,12 +18,6 @@ class ToneAdjuster {
     if (this.isInitialized) return;
     
     try {
-      // Check if LanguageModel AI is available (global object)
-      if (typeof LanguageModel === 'undefined') {
-        console.warn('Chrome AI LanguageModel not available');
-        return;
-      }
-
       // Create context menu items
       this.createContextMenus();
       
@@ -89,8 +80,14 @@ class ToneAdjuster {
         return;
       }
 
-      // Rewrite text with selected tone
-      const rewrittenText = await this.rewriteText(selectedText, toneType);
+      // Rewrite text with selected tone via content script
+      const response = await chrome.tabs.sendMessage(tab.id, {
+        action: 'rewriteTextWithAI',
+        text: selectedText,
+        tone: toneType
+      });
+
+      const rewrittenText = response?.success ? response.adjustedText : null;
       
       if (rewrittenText) {
         // Send result to content script
@@ -137,13 +134,28 @@ class ToneAdjuster {
             throw new Error('Text too long (max 5000 characters)');
           }
           
-          const result = await this.rewriteText(message.text, message.tone);
-          
-          if (!result || typeof result !== 'string' || result.trim().length === 0) {
-            throw new Error('AI returned empty or invalid result');
+          // Delegate text rewriting to content script where AI API is available
+          try {
+            const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (!activeTab) {
+              throw new Error('No active tab found');
+            }
+
+            const response = await chrome.tabs.sendMessage(activeTab.id, {
+              action: 'rewriteTextWithAI',
+              text: message.text,
+              tone: message.tone
+            });
+
+            if (!response || !response.success) {
+              throw new Error(response?.error || 'Failed to rewrite text');
+            }
+
+            sendResponse({ success: true, adjustedText: response.adjustedText });
+          } catch (error) {
+            console.error('Failed to delegate text rewriting:', error);
+            throw error;
           }
-          
-          sendResponse({ success: true, adjustedText: result });
           break;
           
         case 'checkAiAvailability':
@@ -173,254 +185,27 @@ class ToneAdjuster {
 
   async checkAiAvailability() {
     try {
-      if (typeof LanguageModel === 'undefined') {
+      // Delegate AI availability check to content script
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!activeTab) {
+        console.warn('No active tab found for AI availability check');
         return false;
       }
+
+      const response = await chrome.tabs.sendMessage(activeTab.id, {
+        action: 'checkAiAvailability'
+      });
       
-      // Check model availability
-      const availability = await LanguageModel.availability();
-      return availability === 'readily' || availability === 'available';
+      return response?.available || false;
     } catch (error) {
       console.error('AI availability check failed:', error);
       return false;
     }
   }
 
-  async ensureSession() {
-    if (!this.aiSession) {
-      try {
-        // Optimized parameters for Gemini Nano
-        this.aiSession = await LanguageModel.create({
-          temperature: 0.6, // Balanced creativity and coherence
-          topK: 3 // Focus on quality responses
-        });
-        
-        console.log('AI session created successfully');
-      } catch (error) {
-        console.error('Failed to create AI session:', error);
-        throw new Error('AI session creation failed');
-      }
-    }
-    
-    // Reset session timeout
-    this.resetSessionTimeout();
-    
-    return this.aiSession;
-  }
-
-  resetSessionTimeout() {
-    // Clear existing timeout
-    if (this.sessionTimeout) {
-      clearTimeout(this.sessionTimeout);
-    }
-    
-    // Set new timeout to cleanup idle session
-    this.sessionTimeout = setTimeout(() => {
-      this.cleanupIdleSession();
-    }, this.sessionIdleTime);
-  }
-
-  async cleanupIdleSession() {
-    if (this.aiSession) {
-      try {
-        console.log('Cleaning up idle AI session');
-        await this.aiSession.destroy();
-        this.aiSession = null;
-      } catch (error) {
-        console.warn('Error cleaning up idle session:', error);
-        this.aiSession = null; // Force cleanup even if destroy fails
-      }
-    }
-    
-    if (this.sessionTimeout) {
-      clearTimeout(this.sessionTimeout);
-      this.sessionTimeout = null;
-    }
-  }
-
-  async rewriteText(text, tone) {
-    try {
-      if (!text || text.trim().length === 0) {
-        throw new Error('No text provided');
-      }
-
-      // Check text length for context window optimization
-      if (text.length > 3000) {
-        console.warn('Text is long, may hit context limits');
-      }
-
-      const session = await this.ensureSession();
-      
-      // Create optimized prompt for the nano model
-      const prompt = this.createPrompt(text, tone);
-      
-      console.log(`Rewriting text with ${tone} tone:`, text.substring(0, 50) + '...');
-      
-      const response = await session.prompt(prompt);
-      
-      if (!response || response.trim().length === 0) {
-        throw new Error('Empty response from AI');
-      }
-
-      // Clean up response - remove common artifacts
-      const cleanedResponse = this.cleanResponse(response, text);
-      
-      return cleanedResponse;
-    } catch (error) {
-      console.error('Text rewriting failed:', error);
-      
-      // If session failed, try to recreate it once
-      if (this.aiSession && error.message.includes('session')) {
-        try {
-          this.aiSession.destroy();
-          this.aiSession = null;
-          
-          // Retry once with new session
-          const newSession = await this.ensureSession();
-          const prompt = this.createPrompt(text, tone);
-          const response = await newSession.prompt(prompt);
-          
-          if (response && response.trim().length > 0) {
-            return this.cleanResponse(response, text);
-          }
-        } catch (retryError) {
-          console.error('Retry also failed:', retryError);
-        }
-      }
-      
-      throw error;
-    }
-  }
-
-  createPrompt(text, tone) {
-    const prompts = {
-      polish: `You are a professional writing editor with expertise in improving text clarity and impact. I need you to polish this text while preserving its original meaning and intent.
-
-Please enhance the text by:
-- Correcting any grammar, spelling, or punctuation errors
-- Improving sentence flow and readability
-- Choosing stronger, more precise vocabulary
-- Maintaining the author's voice and style
-
-Text to polish: "${text}"
-
-Return only the improved version:`,
-      
-      formal: `You are a business communication specialist. I need you to transform this text into a professional, formal tone suitable for workplace or academic settings.
-
-Please rewrite the text to be:
-- Professional and respectful in tone
-- Clear and direct in communication
-- Appropriate for formal business or academic contexts
-- Free from casual language or slang
-
-Original text: "${text}"
-
-Formal version:`,
-      
-      friendly: `You are a communication coach specializing in warm, approachable writing. I need you to rewrite this text to sound more friendly and welcoming while keeping the core message intact.
-
-Please make the text:
-- Warm and personable in tone
-- Approachable and easy to connect with
-- Positive and encouraging
-- Natural and conversational
-
-Text to make friendly: "${text}"
-
-Friendly version:`,
-      
-      confident: `You are an assertiveness coach helping people communicate with more confidence. I need you to rewrite this text to project strength and certainty while remaining professional.
-
-Please transform the text to be:
-- Confident and self-assured
-- Clear and decisive
-- Free from hedging words like "maybe," "perhaps," "I think"
-- Strong and authoritative without being aggressive
-
-Text to strengthen: "${text}"
-
-Confident version:`,
-      
-      concise: `You are an editor specializing in clear, concise communication. I need you to condense this text to its essential points while preserving all important information.
-
-Please make the text:
-- Brief and to-the-point
-- Free from unnecessary words and filler
-- Clear and direct
-- Focused on key information only
-
-Text to condense: "${text}"
-
-Concise version:`,
-      
-      unhinged: `You are a creative writer with a talent for over-the-top, humorous expression. I need you to completely transform this text into something wildly exaggerated and entertaining.
-
-Please rewrite the text to be:
-- Dramatically exaggerated and theatrical
-- Unexpectedly funny or absurd
-- Creative and unconventional
-- Energetic and chaotic while keeping the core message recognizable
-
-Text to make unhinged: "${text}"
-
-Unhinged version:`
-    };
-
-    return prompts[tone] || prompts.formal; // Fallback to formal
-  }
-
-  cleanResponse(response, originalText) {
-    let cleaned = response.trim();
-    
-    // Remove common AI artifacts and labels
-    const artifactPatterns = [
-      /^(Here's the |Here is the )?([A-Z][a-z]+ version|[A-Z][a-z]+ text):?\s*/i,
-      /^"(.*)"$/s, // Remove surrounding quotes
-      /^\[(.*)\]$/s, // Remove surrounding brackets
-      /^Answer:\s*/i,
-      /^Response:\s*/i,
-      /^Output:\s*/i
-    ];
-    
-    for (const pattern of artifactPatterns) {
-      const match = cleaned.match(pattern);
-      if (match) {
-        cleaned = match[1] || match[0].replace(pattern, '');
-        break;
-      }
-    }
-    
-    // Ensure we don't return empty or just the original text
-    cleaned = cleaned.trim();
-    if (!cleaned || cleaned === originalText) {
-      console.warn('Response cleaning resulted in empty or unchanged text');
-      return response.trim(); // Return original response
-    }
-    
-    return cleaned;
-  }
 
   async cleanup() {
     console.log('Starting ToneAdjuster cleanup');
-    
-    // Clear session timeout
-    if (this.sessionTimeout) {
-      clearTimeout(this.sessionTimeout);
-      this.sessionTimeout = null;
-    }
-    
-    // Cleanup AI session
-    if (this.aiSession) {
-      try {
-        await this.aiSession.destroy();
-        console.log('AI session destroyed successfully');
-      } catch (error) {
-        console.warn('Error destroying AI session:', error);
-      } finally {
-        this.aiSession = null;
-      }
-    }
     
     // Remove context menus
     try {
