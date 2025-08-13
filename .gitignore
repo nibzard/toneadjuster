@@ -73,4 +73,4 @@ venv/
 # Custom
 .notes/
 .todo
-local-test/
+local-test/chrome-extensions-samples/

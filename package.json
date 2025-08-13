@@ -1,0 +1,21 @@
+{
+  "name": "tone-adjuster-extension",
+  "private": true,
+  "version": "1.2.0",
+  "description": "Adjust the tone of your text with AI-powered suggestions, right in your browser.",
+  "main": "background.js",
+  "scripts": {
+    "build": "rollup -c rollup.config.mjs",
+    "dev": "rollup -c rollup.config.mjs -w"
+  },
+  "keywords": ["chrome-extension", "ai", "text-processing", "tone-adjustment"],
+  "license": "MIT",
+  "devDependencies": {
+    "dompurify": "3.2.4",
+    "marked": "14.1.2",
+    "@rollup/plugin-commonjs": "26.0.1",
+    "@rollup/plugin-node-resolve": "15.2.3",
+    "rollup": "4.22.4",
+    "rollup-plugin-copy": "3.5.0"
+  }
+}

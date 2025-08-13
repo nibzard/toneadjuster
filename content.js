@@ -3,6 +3,8 @@
  * Handles text selection detection, UI injection, and tone adjustment workflow
  */
 
+import DOMPurify from 'dompurify';
+
 class ToneAdjuster {
     constructor() {
         this.currentSelection = null;
@@ -148,36 +150,105 @@ class ToneAdjuster {
     }
     
     createTooltipContent() {
-        const toneButtons = this.tones.map(tone => `
-            <button class="tone-btn" data-tone="${tone.id}" title="Adjust to ${tone.label} tone">
-                <span class="tone-icon">${tone.icon}</span>
-                <span class="tone-label">${tone.label}</span>
-            </button>
-        `).join('');
+        // Create content container
+        const container = document.createElement('div');
         
-        return `
-            <div class="tooltip-header">
-                <span class="tooltip-title">Adjust Tone</span>
-                <button class="close-btn" title="Close">&times;</button>
-            </div>
-            <div class="tone-buttons">
-                ${toneButtons}
-            </div>
-            <div class="processing-state" style="display: none;">
-                <div class="spinner"></div>
-                <span class="processing-text">Adjusting tone...</span>
-            </div>
-            <div class="preview-section" style="display: none;">
-                <div class="preview-header">
-                    <span class="preview-title">Preview</span>
-                </div>
-                <div class="preview-content"></div>
-                <div class="preview-actions">
-                    <button class="accept-btn">Accept</button>
-                    <button class="reject-btn">Try Again</button>
-                </div>
-            </div>
-        `;
+        // Create header
+        const header = document.createElement('div');
+        header.className = 'tooltip-header';
+        
+        const title = document.createElement('span');
+        title.className = 'tooltip-title';
+        title.textContent = 'Adjust Tone';
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'close-btn';
+        closeBtn.title = 'Close';
+        closeBtn.innerHTML = '&times;';
+        
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+        
+        // Create tone buttons container
+        const buttonsContainer = document.createElement('div');
+        buttonsContainer.className = 'tone-buttons';
+        
+        this.tones.forEach(tone => {
+            const button = document.createElement('button');
+            button.className = 'tone-btn';
+            button.dataset.tone = tone.id;
+            button.title = `Adjust to ${tone.label} tone`;
+            
+            const icon = document.createElement('span');
+            icon.className = 'tone-icon';
+            icon.textContent = tone.icon;
+            
+            const label = document.createElement('span');
+            label.className = 'tone-label';
+            label.textContent = tone.label;
+            
+            button.appendChild(icon);
+            button.appendChild(label);
+            buttonsContainer.appendChild(button);
+        });
+        
+        // Create processing state
+        const processingState = document.createElement('div');
+        processingState.className = 'processing-state';
+        processingState.style.display = 'none';
+        
+        const spinner = document.createElement('div');
+        spinner.className = 'spinner';
+        
+        const processingText = document.createElement('span');
+        processingText.className = 'processing-text';
+        processingText.textContent = 'Adjusting tone...';
+        
+        processingState.appendChild(spinner);
+        processingState.appendChild(processingText);
+        
+        // Create preview section
+        const previewSection = document.createElement('div');
+        previewSection.className = 'preview-section';
+        previewSection.style.display = 'none';
+        
+        const previewHeader = document.createElement('div');
+        previewHeader.className = 'preview-header';
+        
+        const previewTitle = document.createElement('span');
+        previewTitle.className = 'preview-title';
+        previewTitle.textContent = 'Preview';
+        
+        previewHeader.appendChild(previewTitle);
+        
+        const previewContent = document.createElement('div');
+        previewContent.className = 'preview-content';
+        
+        const previewActions = document.createElement('div');
+        previewActions.className = 'preview-actions';
+        
+        const acceptBtn = document.createElement('button');
+        acceptBtn.className = 'accept-btn';
+        acceptBtn.textContent = 'Accept';
+        
+        const rejectBtn = document.createElement('button');
+        rejectBtn.className = 'reject-btn';
+        rejectBtn.textContent = 'Try Again';
+        
+        previewActions.appendChild(acceptBtn);
+        previewActions.appendChild(rejectBtn);
+        
+        previewSection.appendChild(previewHeader);
+        previewSection.appendChild(previewContent);
+        previewSection.appendChild(previewActions);
+        
+        // Assemble all parts
+        container.appendChild(header);
+        container.appendChild(buttonsContainer);
+        container.appendChild(processingState);
+        container.appendChild(previewSection);
+        
+        return container;
     }
     
     positionTooltip(range) {
@@ -316,7 +387,10 @@ class ToneAdjuster {
         if (processingState && previewSection && previewContent) {
             processingState.style.display = 'none';
             previewSection.style.display = 'block';
-            previewContent.textContent = adjustedText;
+            
+            // Sanitize the adjusted text before displaying (though textContent should be safe)
+            const sanitizedText = DOMPurify.sanitize(adjustedText, { ALLOWED_TAGS: [] });
+            previewContent.textContent = sanitizedText;
             
             // Store adjusted text for potential acceptance
             this.adjustedText = adjustedText;
@@ -586,23 +660,22 @@ async function rewriteTextWithAI(text, tone) {
     } catch (error) {
         console.error('Text rewriting failed:', error);
         
-        // If session failed, try to recreate it once
-        if (aiSessions[tone] && error.message.includes('session')) {
-            try {
-                aiSessions[tone].destroy();
-                delete aiSessions[tone];
-                
-                // Retry once with new session
-                const newSession = await ensureAISession(tone);
-                const prompt = createPrompt(text, tone);
-                const response = await newSession.prompt(prompt);
-                
-                if (response && response.trim().length > 0) {
-                    return cleanResponse(response, text);
-                }
-            } catch (retryError) {
-                console.error('Retry also failed:', retryError);
+        // Reset session on any failure (following sample extension pattern)
+        console.log('Prompt failed, resetting session');
+        await resetAISession(tone);
+        
+        // Try once more with fresh session
+        try {
+            const retrySession = await ensureAISession(tone);
+            const prompt = createPrompt(text, tone);
+            const response = await retrySession.prompt(prompt);
+            
+            if (response && response.trim().length > 0) {
+                console.log('Retry succeeded after session reset');
+                return cleanResponse(response, text);
             }
+        } catch (retryError) {
+            console.error('Retry also failed:', retryError);
         }
         
         throw error;
@@ -626,10 +699,11 @@ async function ensureAISession(tone) {
             // Configure parameters based on tone
             const toneConfig = getToneParameters(tone, params);
             
-            // Create session with tone-specific parameters
+            // Create session with tone-specific parameters and system prompts
             aiSessions[sessionKey] = await LanguageModel.create({
                 temperature: toneConfig.temperature,
-                topK: toneConfig.topK
+                topK: toneConfig.topK,
+                initialPrompts: getInitialPrompts(tone)
             });
             
             console.log(`AI session created for ${tone} tone:`, toneConfig);
@@ -645,51 +719,101 @@ async function ensureAISession(tone) {
     return aiSessions[sessionKey];
 }
 
+function getInitialPrompts(tone) {
+    const systemPrompts = {
+        polish: [
+            { 
+                role: 'system', 
+                content: 'You are a professional text editor. Rewrite text to be polished, clear, and grammatically perfect while preserving the original meaning and intent. Focus on improving clarity, flow, and correctness.'
+            }
+        ],
+        formal: [
+            { 
+                role: 'system', 
+                content: 'You are a professional communication specialist. Rewrite text to be formal, professional, and appropriate for business or academic contexts while maintaining the original message.'
+            }
+        ],
+        friendly: [
+            { 
+                role: 'system', 
+                content: 'You are a friendly communication helper. Rewrite text to be warm, approachable, and conversational while keeping the original meaning intact.'
+            }
+        ],
+        confident: [
+            { 
+                role: 'system', 
+                content: 'You are a confident communication coach. Rewrite text to sound assertive, decisive, and self-assured while preserving the original intent.'
+            }
+        ],
+        concise: [
+            { 
+                role: 'system', 
+                content: 'You are a concise writing expert. Rewrite text to be brief, clear, and to-the-point while maintaining all essential information and meaning.'
+            }
+        ],
+        unhinged: [
+            { 
+                role: 'system', 
+                content: 'You are a creative and unconventional text rewriter. Make the text more expressive, dramatic, and emotionally intense while keeping the core message.'
+            }
+        ]
+    };
+    
+    return systemPrompts[tone] || [
+        { 
+            role: 'system', 
+            content: 'You are a helpful text rewriting assistant. Improve the given text while preserving its original meaning and intent.'
+        }
+    ];
+}
+
 function getToneParameters(tone, defaultParams) {
     const baseTemp = defaultParams.defaultTemperature || 0.8;
     const baseTopK = defaultParams.defaultTopK || 8;
+    const maxTemp = defaultParams.maxTemperature || 2.0;
+    const maxTopK = defaultParams.maxTopK || 40;
     
     const configs = {
         // Lower creativity - focus on correctness
         polish: {
-            temperature: Math.max(baseTemp * 0.3, 0.1),
-            topK: Math.max(baseTopK - 5, 1)
+            temperature: Math.max(Math.min(baseTemp * 0.3, maxTemp), 0.1),
+            topK: Math.max(Math.min(baseTopK - 5, maxTopK), 1)
         },
         
         // Moderate creativity - structured but varied
         formal: {
-            temperature: Math.max(baseTemp * 0.5, 0.2),
-            topK: Math.max(baseTopK - 3, 2)
+            temperature: Math.max(Math.min(baseTemp * 0.5, maxTemp), 0.2),
+            topK: Math.max(Math.min(baseTopK - 3, maxTopK), 2)
         },
         
         // Moderate-high creativity - warm variations
         friendly: {
-            temperature: Math.max(baseTemp * 0.8, 0.4),
-            topK: baseTopK
+            temperature: Math.min(baseTemp * 0.8, maxTemp),
+            topK: Math.min(baseTopK, maxTopK)
         },
         
         // Lower creativity - decisive and direct
         confident: {
-            temperature: Math.max(baseTemp * 0.4, 0.2),
-            topK: Math.max(baseTopK - 4, 2)
+            temperature: Math.max(Math.min(baseTemp * 0.4, maxTemp), 0.2),
+            topK: Math.max(Math.min(baseTopK - 4, maxTopK), 2)
         },
         
         // Very low creativity - precise reduction
         concise: {
-            temperature: Math.max(baseTemp * 0.2, 0.1),
-            topK: Math.max(baseTopK - 6, 1)
+            temperature: Math.max(Math.min(baseTemp * 0.2, maxTemp), 0.1),
+            topK: Math.max(Math.min(baseTopK - 6, maxTopK), 1)
         },
         
         // Maximum creativity - wild and varied
         unhinged: {
-            temperature: Math.max(baseTemp * 1.5, 1.2),
-            topK: Math.min(baseTopK + 5, 40)
+            temperature: Math.min(baseTemp * 1.5, maxTemp),
+            topK: Math.min(baseTopK + 5, maxTopK)
         }
     };
     
     return configs[tone] || {
-        temperature: baseTemp,
-        topK: baseTopK
+        temperature: Math.min(baseTemp, maxTemp),
+        topK: Math.min(baseTopK, maxTopK)
     };
 }
 
@@ -703,6 +827,25 @@ function resetSessionTimeout(sessionKey) {
     sessionTimeouts[sessionKey] = setTimeout(() => {
         cleanupIdleSession(sessionKey);
     }, sessionIdleTime);
+}
+
+async function resetAISession(tone) {
+    const sessionKey = tone || 'default';
+    
+    if (aiSessions[sessionKey]) {
+        try {
+            await aiSessions[sessionKey].destroy();
+        } catch (error) {
+            console.error(`Error destroying session ${sessionKey}:`, error);
+        }
+        delete aiSessions[sessionKey];
+    }
+    
+    // Clear timeout
+    if (sessionTimeouts[sessionKey]) {
+        clearTimeout(sessionTimeouts[sessionKey]);
+        delete sessionTimeouts[sessionKey];
+    }
 }
 
 async function cleanupIdleSession(sessionKey) {
