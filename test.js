@@ -18,7 +18,52 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
         logToConsole('🌐 Regular web page context detected', 'warn');
     }
+    
+    // Set up button event listeners
+    setupEventListeners();
 });
+
+// Set up all button event listeners
+function setupEventListeners() {
+    // AI Status section
+    const refreshAiStatusBtn = document.getElementById('refreshAiStatusBtn');
+    const testDirectApiBtn = document.getElementById('testDirectApiBtn');
+    
+    // Tone adjustment section  
+    const testToneAdjustmentBtn = document.getElementById('testToneAdjustmentBtn');
+    const clearResultsBtn = document.getElementById('clearResultsBtn');
+    
+    // Debug console section
+    const clearConsoleBtn = document.getElementById('clearConsoleBtn');
+    const toggleAutoScrollBtn = document.getElementById('toggleAutoScrollBtn');
+    
+    // Add event listeners
+    if (refreshAiStatusBtn) {
+        refreshAiStatusBtn.addEventListener('click', checkAiStatus);
+    }
+    
+    if (testDirectApiBtn) {
+        testDirectApiBtn.addEventListener('click', testDirectApi);
+    }
+    
+    if (testToneAdjustmentBtn) {
+        testToneAdjustmentBtn.addEventListener('click', testToneAdjustment);
+    }
+    
+    if (clearResultsBtn) {
+        clearResultsBtn.addEventListener('click', clearResults);
+    }
+    
+    if (clearConsoleBtn) {
+        clearConsoleBtn.addEventListener('click', clearConsole);
+    }
+    
+    if (toggleAutoScrollBtn) {
+        toggleAutoScrollBtn.addEventListener('click', toggleAutoScroll);
+    }
+    
+    logToConsole('🔧 Event listeners set up successfully', 'info');
+}
 
 // Enhanced console logging
 function logToConsole(message, type = 'info') {
