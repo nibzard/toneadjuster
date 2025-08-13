@@ -208,37 +208,9 @@ async function testToneAdjustment() {
     logToConsole(`Input text: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`, 'info');
     
     try {
-        // Test via extension messaging if available
-        if (typeof chrome !== 'undefined' && chrome.runtime) {
-            logToConsole('📨 Using extension messaging...', 'info');
-            
-            const response = await new Promise((resolve, reject) => {
-                chrome.runtime.sendMessage({
-                    action: 'rewriteText',
-                    text: text,
-                    tone: tone
-                }, (response) => {
-                    if (chrome.runtime.lastError) {
-                        reject(new Error(chrome.runtime.lastError.message));
-                    } else {
-                        resolve(response);
-                    }
-                });
-            });
-            
-            if (response && response.success) {
-                resultDiv.textContent = `Original: "${text}"\n\nAdjusted (${tone}): "${response.adjustedText}"`;
-                resultDiv.className = 'result success';
-                logToConsole(`✅ Tone adjustment successful via extension`, 'success');
-                logToConsole(`Result: "${response.adjustedText}"`, 'success');
-            } else {
-                throw new Error(response?.error || 'Unknown extension error');
-            }
-        } else {
-            // Test direct API call
-            logToConsole('🔗 Using direct API call...', 'info');
-            await testDirectToneAdjustment(text, tone);
-        }
+        // Use direct API call for test page (more reliable and appropriate)
+        logToConsole('🔗 Using direct LanguageModel API (test page has direct access)...', 'info');
+        await testDirectToneAdjustment(text, tone);
         
         resultDiv.style.display = 'block';
         

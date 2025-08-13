@@ -151,6 +151,7 @@
 
         <div class="test-section">
             <h3>✏️ Tone Adjustment Test</h3>
+            <p><strong>Note:</strong> This test uses direct LanguageModel API access since the test page runs in extension context.</p>
             <div class="form-group">
                 <label for="testText">Test Text:</label>
                 <textarea id="testText" placeholder="Enter text to adjust tone...">Hey there! I'm super excited about this meeting tomorrow. Can't wait to see what we come up with!</textarea>
@@ -166,13 +167,14 @@
                     <option value="unhinged">Unhinged</option>
                 </select>
             </div>
-            <button id="testToneAdjustmentBtn">Adjust Tone</button>
+            <button id="testToneAdjustmentBtn">Adjust Tone (Direct API)</button>
             <button id="clearResultsBtn">Clear Results</button>
             <div id="toneResult" class="result" style="display: none;"></div>
         </div>
 
         <div class="test-section">
-            <h3>📝 Editable Text Fields (for selection testing)</h3>
+            <h3>📝 Extension Messaging Test (for real web pages)</h3>
+            <p><strong>Note:</strong> These fields test the extension's context menu functionality. Right-click selected text to test extension messaging system.</p>
             <div class="form-group">
                 <label for="editableInput">Input Field:</label>
                 <input type="text" id="editableInput" value="This is some sample text in an input field that you can select." />
