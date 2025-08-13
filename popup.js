@@ -27,6 +27,7 @@ class PopupManager {
             statusMessage: document.getElementById('statusMessage'),
             actionsSection: document.getElementById('actionsSection'),
             toneButtons: document.querySelectorAll('.tone-button'),
+            testButton: document.getElementById('testButton'),
             settingsButton: document.getElementById('settingsButton'),
             helpButton: document.getElementById('helpButton'),
             refreshButton: document.getElementById('refreshButton')
@@ -47,6 +48,10 @@ class PopupManager {
         });
 
         // Footer buttons
+        this.elements.testButton.addEventListener('click', () => {
+            this.openTestPage();
+        });
+
         this.elements.refreshButton.addEventListener('click', () => {
             this.handleRefreshClick();
         });
@@ -315,6 +320,15 @@ class PopupManager {
         // Open help in a new tab
         chrome.tabs.create({ 
             url: 'https://developer.chrome.com/docs/extensions/ai/prompt-api'
+        });
+    }
+
+    /**
+     * Open test page for debugging
+     */
+    openTestPage() {
+        chrome.tabs.create({
+            url: chrome.runtime.getURL('test.html')
         });
     }
 
