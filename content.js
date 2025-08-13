@@ -507,6 +507,265 @@ class ToneAdjuster {
     }
 }
 
+// Add message listener for background script communication
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'checkAiAvailability') {
+        checkAiAvailability().then(available => {
+            sendResponse({ available });
+        }).catch(error => {
+            console.error('Content script AI check failed:', error);
+            sendResponse({ available: false });
+        });
+        return true; // Keep message channel open for async response
+    } else if (message.action === 'rewriteTextWithAI') {
+        rewriteTextWithAI(message.text, message.tone).then(result => {
+            sendResponse({ success: true, adjustedText: result });
+        }).catch(error => {
+            console.error('Content script text rewriting failed:', error);
+            sendResponse({ success: false, error: error.message });
+        });
+        return true; // Keep message channel open for async response
+    }
+});
+
+// AI availability check function for content script
+async function checkAiAvailability() {
+    try {
+        if (typeof LanguageModel === 'undefined') {
+            console.log('LanguageModel global not available');
+            return false;
+        }
+        
+        // Check model availability
+        const availability = await LanguageModel.availability();
+        console.log('AI availability status:', availability);
+        
+        return availability === 'readily' || availability === 'available';
+    } catch (error) {
+        console.error('AI availability check failed:', error);
+        return false;
+    }
+}
+
+// AI text rewriting function for content script
+let aiSession = null;
+let sessionTimeout = null;
+const sessionIdleTime = 5 * 60 * 1000; // 5 minutes
+
+async function rewriteTextWithAI(text, tone) {
+    try {
+        if (!text || text.trim().length === 0) {
+            throw new Error('No text provided');
+        }
+
+        const session = await ensureAISession();
+        const prompt = createPrompt(text, tone);
+        
+        console.log(`Rewriting text with ${tone} tone:`, text.substring(0, 50) + '...');
+        
+        const response = await session.prompt(prompt);
+        
+        if (!response || response.trim().length === 0) {
+            throw new Error('Empty response from AI');
+        }
+
+        // Clean up response - remove common artifacts
+        const cleanedResponse = cleanResponse(response, text);
+        
+        return cleanedResponse;
+    } catch (error) {
+        console.error('Text rewriting failed:', error);
+        
+        // If session failed, try to recreate it once
+        if (aiSession && error.message.includes('session')) {
+            try {
+                aiSession.destroy();
+                aiSession = null;
+                
+                // Retry once with new session
+                const newSession = await ensureAISession();
+                const prompt = createPrompt(text, tone);
+                const response = await newSession.prompt(prompt);
+                
+                if (response && response.trim().length > 0) {
+                    return cleanResponse(response, text);
+                }
+            } catch (retryError) {
+                console.error('Retry also failed:', retryError);
+            }
+        }
+        
+        throw error;
+    }
+}
+
+async function ensureAISession() {
+    if (!aiSession) {
+        try {
+            // Check availability first
+            const available = await checkAiAvailability();
+            if (!available) {
+                throw new Error('AI not available');
+            }
+            
+            // Create session with optimized parameters for Gemini Nano
+            aiSession = await LanguageModel.create({
+                temperature: 0.6, // Balanced creativity and coherence
+                topK: 3 // Focus on quality responses
+            });
+            
+            console.log('AI session created successfully');
+        } catch (error) {
+            console.error('Failed to create AI session:', error);
+            throw new Error('AI session creation failed: ' + error.message);
+        }
+    }
+    
+    // Reset session timeout
+    resetSessionTimeout();
+    
+    return aiSession;
+}
+
+function resetSessionTimeout() {
+    // Clear existing timeout
+    if (sessionTimeout) {
+        clearTimeout(sessionTimeout);
+    }
+    
+    // Set new timeout to cleanup idle session
+    sessionTimeout = setTimeout(() => {
+        cleanupIdleSession();
+    }, sessionIdleTime);
+}
+
+async function cleanupIdleSession() {
+    if (aiSession) {
+        try {
+            console.log('Cleaning up idle AI session');
+            await aiSession.destroy();
+            aiSession = null;
+        } catch (error) {
+            console.warn('Error cleaning up idle session:', error);
+            aiSession = null; // Force cleanup even if destroy fails
+        }
+    }
+    
+    if (sessionTimeout) {
+        clearTimeout(sessionTimeout);
+        sessionTimeout = null;
+    }
+}
+
+function createPrompt(text, tone) {
+    const prompts = {
+        polish: `You are a professional writing editor with expertise in improving text clarity and impact. I need you to polish this text while preserving its original meaning and intent.
+
+Please enhance the text by:
+- Correcting any grammar, spelling, or punctuation errors
+- Improving sentence flow and readability
+- Choosing stronger, more precise vocabulary
+- Maintaining the author's voice and style
+
+Text to polish: "${text}"
+
+Return only the improved version:`,
+        
+        formal: `You are a business communication specialist. I need you to transform this text into a professional, formal tone suitable for workplace or academic settings.
+
+Please rewrite the text to be:
+- Professional and respectful in tone
+- Clear and direct in communication
+- Appropriate for formal business or academic contexts
+- Free from casual language or slang
+
+Original text: "${text}"
+
+Formal version:`,
+        
+        friendly: `You are a communication coach specializing in warm, approachable writing. I need you to rewrite this text to sound more friendly and welcoming while keeping the core message intact.
+
+Please make the text:
+- Warm and personable in tone
+- Approachable and easy to connect with
+- Positive and encouraging
+- Natural and conversational
+
+Text to make friendly: "${text}"
+
+Friendly version:`,
+        
+        confident: `You are an assertiveness coach helping people communicate with more confidence. I need you to rewrite this text to project strength and certainty while remaining professional.
+
+Please transform the text to be:
+- Confident and self-assured
+- Clear and decisive
+- Free from hedging words like "maybe," "perhaps," "I think"
+- Strong and authoritative without being aggressive
+
+Text to strengthen: "${text}"
+
+Confident version:`,
+        
+        concise: `You are an editor specializing in clear, concise communication. I need you to condense this text to its essential points while preserving all important information.
+
+Please make the text:
+- Brief and to-the-point
+- Free from unnecessary words and filler
+- Clear and direct
+- Focused on key information only
+
+Text to condense: "${text}"
+
+Concise version:`,
+        
+        unhinged: `You are a creative writer with a talent for over-the-top, humorous expression. I need you to completely transform this text into something wildly exaggerated and entertaining.
+
+Please rewrite the text to be:
+- Dramatically exaggerated and theatrical
+- Unexpectedly funny or absurd
+- Creative and unconventional
+- Energetic and chaotic while keeping the core message recognizable
+
+Text to make unhinged: "${text}"
+
+Unhinged version:`
+    };
+
+    return prompts[tone] || prompts.formal; // Fallback to formal
+}
+
+function cleanResponse(response, originalText) {
+    let cleaned = response.trim();
+    
+    // Remove common AI artifacts and labels
+    const artifactPatterns = [
+        /^(Here's the |Here is the )?([A-Z][a-z]+ version|[A-Z][a-z]+ text):?\s*/i,
+        /^"(.*)"$/s, // Remove surrounding quotes
+        /^\[(.*)\]$/s, // Remove surrounding brackets
+        /^Answer:\s*/i,
+        /^Response:\s*/i,
+        /^Output:\s*/i
+    ];
+    
+    for (const pattern of artifactPatterns) {
+        const match = cleaned.match(pattern);
+        if (match) {
+            cleaned = match[1] || match[0].replace(pattern, '');
+            break;
+        }
+    }
+    
+    // Ensure we don't return empty or just the original text
+    cleaned = cleaned.trim();
+    if (!cleaned || cleaned === originalText) {
+        console.warn('Response cleaning resulted in empty or unchanged text');
+        return response.trim(); // Return original response
+    }
+    
+    return cleaned;
+}
+
 // Initialize the Tone Adjuster when the page is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {

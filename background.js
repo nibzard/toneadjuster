@@ -21,8 +21,8 @@ class ToneAdjuster {
     if (this.isInitialized) return;
     
     try {
-      // Check if LanguageModel AI is available
-      if (!window.ai?.LanguageModel) {
+      // Check if LanguageModel AI is available (global object)
+      if (typeof LanguageModel === 'undefined') {
         console.warn('Chrome AI LanguageModel not available');
         return;
       }
@@ -173,12 +173,12 @@ class ToneAdjuster {
 
   async checkAiAvailability() {
     try {
-      if (!window.ai?.LanguageModel) {
+      if (typeof LanguageModel === 'undefined') {
         return false;
       }
       
       // Check model availability
-      const availability = await window.ai.LanguageModel.availability();
+      const availability = await LanguageModel.availability();
       return availability === 'readily' || availability === 'available';
     } catch (error) {
       console.error('AI availability check failed:', error);
@@ -190,7 +190,7 @@ class ToneAdjuster {
     if (!this.aiSession) {
       try {
         // Optimized parameters for Gemini Nano
-        this.aiSession = await window.ai.LanguageModel.create({
+        this.aiSession = await LanguageModel.create({
           temperature: 0.6, // Balanced creativity and coherence
           topK: 3 // Focus on quality responses
         });

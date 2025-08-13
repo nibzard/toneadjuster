@@ -72,13 +72,14 @@ class PopupManager {
         this.updateStatus('loading', 'Checking AI availability...', 'Connecting to Chrome AI');
 
         try {
-            // Check if LanguageModel API is available
-            if (!window.ai?.LanguageModel) {
+            // Check if LanguageModel API is available (global object)
+            if (typeof LanguageModel === 'undefined') {
                 throw new Error('Chrome AI LanguageModel API not available');
             }
 
             // Check model availability
-            const capabilities = await window.ai.LanguageModel.availability();
+            const capabilities = await LanguageModel.availability();
+            console.log('AI capabilities check:', capabilities);
             
             if (capabilities === 'no') {
                 throw new Error('Chrome AI is not available on this device');
@@ -91,7 +92,7 @@ class PopupManager {
             }
 
             // Try to create a test session
-            const session = await window.ai.LanguageModel.create();
+            const session = await LanguageModel.create();
             await session.destroy();
 
             this.aiStatus = 'available';
@@ -154,7 +155,7 @@ class PopupManager {
             attempts++;
             
             try {
-                const capabilities = await window.ai.LanguageModel.availability();
+                const capabilities = await LanguageModel.availability();
                 
                 if (capabilities === 'readily' || capabilities === 'available') {
                     this.updateStatus('success', 'AI Ready', 'Download complete! Chrome AI is now ready.');
@@ -194,8 +195,9 @@ class PopupManager {
 
         if (error.message.includes('not available')) {
             steps = [
-                'Make sure you\'re using Chrome version 127 or later',
+                'Make sure you\'re using Chrome version 138 or later',
                 'Enable "Experimental Web Platform features" in chrome://flags',
+                'Check chrome://on-device-internals/ to verify Gemini Nano is loaded',
                 'Restart your browser and try again'
             ];
         } else {
@@ -235,7 +237,7 @@ class PopupManager {
      */
     getErrorMessage(error) {
         if (error.message.includes('not available')) {
-            return 'Chrome AI requires Chrome 127+ and experimental features enabled.';
+            return 'Chrome AI requires Chrome 138+ and experimental features enabled.';
         }
         if (error.message.includes('after-download')) {
             return 'AI model needs to be downloaded first.';
