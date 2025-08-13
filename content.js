@@ -509,6 +509,8 @@ class ToneAdjuster {
 
 // Add message listener for background script communication
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    console.log('Content script received message:', message);
+    
     if (message.action === 'checkAiAvailability') {
         checkAiAvailability().then(available => {
             sendResponse({ available });
@@ -525,6 +527,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             sendResponse({ success: false, error: error.message });
         });
         return true; // Keep message channel open for async response
+    } else {
+        // Handle unknown actions
+        console.warn('Unknown action received:', message.action);
+        sendResponse({ success: false, error: 'Unknown action: ' + message.action });
+        return false; // Don't keep channel open for unknown actions
     }
 });
 

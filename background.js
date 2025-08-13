@@ -81,10 +81,23 @@ class ToneAdjuster {
       }
 
       // Rewrite text with selected tone via content script
-      const response = await chrome.tabs.sendMessage(tab.id, {
-        action: 'rewriteTextWithAI',
-        text: selectedText,
-        tone: toneType
+      const response = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Context menu timeout - content script did not respond'));
+        }, 30000); // 30 second timeout
+
+        chrome.tabs.sendMessage(tab.id, {
+          action: 'rewriteTextWithAI',
+          text: selectedText,
+          tone: toneType
+        }, (response) => {
+          clearTimeout(timeout);
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response);
+          }
+        });
       });
 
       const rewrittenText = response?.success ? response.adjustedText : null;
@@ -141,10 +154,23 @@ class ToneAdjuster {
               throw new Error('No active tab found');
             }
 
-            const response = await chrome.tabs.sendMessage(activeTab.id, {
-              action: 'rewriteTextWithAI',
-              text: message.text,
-              tone: message.tone
+            const response = await new Promise((resolve, reject) => {
+              const timeout = setTimeout(() => {
+                reject(new Error('Message timeout - content script did not respond'));
+              }, 30000); // 30 second timeout
+
+              chrome.tabs.sendMessage(activeTab.id, {
+                action: 'rewriteTextWithAI',
+                text: message.text,
+                tone: message.tone
+              }, (response) => {
+                clearTimeout(timeout);
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else {
+                  resolve(response);
+                }
+              });
             });
 
             if (!response || !response.success) {
@@ -192,8 +218,21 @@ class ToneAdjuster {
         return false;
       }
 
-      const response = await chrome.tabs.sendMessage(activeTab.id, {
-        action: 'checkAiAvailability'
+      const response = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('AI check timeout - content script did not respond'));
+        }, 10000); // 10 second timeout
+
+        chrome.tabs.sendMessage(activeTab.id, {
+          action: 'checkAiAvailability'
+        }, (response) => {
+          clearTimeout(timeout);
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else {
+            resolve(response);
+          }
+        });
       });
       
       return response?.available || false;
