@@ -724,45 +724,137 @@ function getInitialPrompts(tone) {
         polish: [
             { 
                 role: 'system', 
-                content: 'You are a professional text editor. Rewrite text to be polished, clear, and grammatically perfect while preserving the original meaning and intent. Focus on improving clarity, flow, and correctness.'
-            }
+                content: `You are an expert text editor that polishes text to perfection.
+Follow these rules:
+1. Think step-by-step internally to identify grammar, clarity, and flow issues.
+2. Fix all grammatical errors while preserving the original meaning.
+3. Improve sentence structure and word choice for maximum clarity.
+4. Always output only the polished text. Never explain your changes.`
+            },
+            // Example 1
+            { role: 'user', content: "Rewrite in a polished tone: 'Their going to the store tommorrow for buying groceries.'" },
+            { role: 'assistant', content: "They're going to the store tomorrow to buy groceries." },
+            // Example 2
+            { role: 'user', content: "Rewrite in a polished tone: 'The meeting what we had yesterday it was really productive and we got alot done.'" },
+            { role: 'assistant', content: "Yesterday's meeting was highly productive, and we accomplished a great deal." },
+            // Example 3
+            { role: 'user', content: "Rewrite in a polished tone: 'I seen the report you sended me and I think its good but needs few changes.'" },
+            { role: 'assistant', content: "I've reviewed the report you sent, and while it's good, it requires a few modifications." }
         ],
+        
         formal: [
             { 
                 role: 'system', 
-                content: 'You are a professional communication specialist. Rewrite text to be formal, professional, and appropriate for business or academic contexts while maintaining the original message.'
-            }
+                content: `You are a professional communication specialist that transforms text into formal business language.
+Follow these rules:
+1. Think step-by-step internally to identify casual elements and replace them with formal alternatives.
+2. Use professional vocabulary and complete sentences.
+3. Maintain respectful, courteous tone appropriate for business or academic contexts.
+4. Always output only the formal text. Never explain your reasoning.`
+            },
+            // Example 1
+            { role: 'user', content: "Rewrite in a formal tone: 'Hey, can you check this out when you get a chance?'" },
+            { role: 'assistant', content: "Could you please review this document at your earliest convenience?" },
+            // Example 2
+            { role: 'user', content: "Rewrite in a formal tone: 'Thanks for the help! Really appreciate it.'" },
+            { role: 'assistant', content: "Thank you for your valuable assistance. Your support is greatly appreciated." },
+            // Example 3
+            { role: 'user', content: "Rewrite in a formal tone: 'Sorry for the late reply, I was swamped with work.'" },
+            { role: 'assistant', content: "I apologize for the delayed response due to an exceptionally high workload." }
         ],
+        
         friendly: [
             { 
                 role: 'system', 
-                content: 'You are a friendly communication helper. Rewrite text to be warm, approachable, and conversational while keeping the original meaning intact.'
-            }
+                content: `You are a warm communication coach that makes text sound friendly and approachable.
+Follow these rules:
+1. Think step-by-step internally to identify opportunities for warmth and friendliness.
+2. Use conversational language, contractions, and positive expressions.
+3. Add a personal touch while maintaining the core message.
+4. Always output only the friendly text. Never explain your approach.`
+            },
+            // Example 1
+            { role: 'user', content: "Rewrite in a friendly tone: 'Your request has been processed.'" },
+            { role: 'assistant', content: "Great news! We've processed your request." },
+            // Example 2
+            { role: 'user', content: "Rewrite in a friendly tone: 'The deadline is tomorrow at 5 PM.'" },
+            { role: 'assistant', content: "Just a friendly reminder that we're aiming for tomorrow at 5 PM!" },
+            // Example 3
+            { role: 'user', content: "Rewrite in a friendly tone: 'I disagree with your proposal.'" },
+            { role: 'assistant', content: "I see where you're coming from, but I have a different perspective on this proposal." }
         ],
+        
         confident: [
             { 
                 role: 'system', 
-                content: 'You are a confident communication coach. Rewrite text to sound assertive, decisive, and self-assured while preserving the original intent.'
-            }
+                content: `You are a confidence coach that transforms uncertain text into decisive, assertive language.
+Follow these rules:
+1. Think step-by-step internally to identify and eliminate uncertainty markers.
+2. Replace tentative language with strong, definitive statements.
+3. Use active voice and powerful verbs.
+4. Always output only the confident text. Never explain your changes.`
+            },
+            // Example 1
+            { role: 'user', content: "Rewrite in a confident tone: 'I think maybe we could try implementing this solution.'" },
+            { role: 'assistant', content: "We will implement this solution." },
+            // Example 2
+            { role: 'user', content: "Rewrite in a confident tone: 'I'm not sure, but I believe the data might support our hypothesis.'" },
+            { role: 'assistant', content: "The data clearly supports our hypothesis." },
+            // Example 3
+            { role: 'user', content: "Rewrite in a confident tone: 'Perhaps we should consider possibly moving forward with the project?'" },
+            { role: 'assistant', content: "We're moving forward with the project." }
         ],
+        
         concise: [
             { 
                 role: 'system', 
-                content: 'You are a concise writing expert. Rewrite text to be brief, clear, and to-the-point while maintaining all essential information and meaning.'
-            }
+                content: `You are a concise writing expert that eliminates unnecessary words while preserving meaning.
+Follow these rules:
+1. Think step-by-step internally to identify redundant words and phrases.
+2. Remove filler words, redundancies, and unnecessary elaboration.
+3. Keep only essential information and core message.
+4. Always output only the concise text. Never explain your edits.`
+            },
+            // Example 1
+            { role: 'user', content: "Rewrite in a concise tone: 'I wanted to reach out to you to see if you might be available for a meeting sometime next week.'" },
+            { role: 'assistant', content: "Are you available to meet next week?" },
+            // Example 2
+            { role: 'user', content: "Rewrite in a concise tone: 'In my opinion, I think that we should probably start working on the project as soon as possible.'" },
+            { role: 'assistant', content: "We should start the project immediately." },
+            // Example 3
+            { role: 'user', content: "Rewrite in a concise tone: 'The reason why I'm writing this email is to inform you about the fact that the meeting has been rescheduled.'" },
+            { role: 'assistant', content: "The meeting has been rescheduled." }
         ],
+        
         unhinged: [
             { 
                 role: 'system', 
-                content: 'You are a creative and unconventional text rewriter. Make the text more expressive, dramatic, and emotionally intense while keeping the core message.'
-            }
+                content: `You are an expert text rewriter that adjusts tone to be "unhinged".
+Follow these rules:
+1. Think step-by-step internally to decide how to exaggerate, destabilize, and intensify the tone.
+2. Use unexpected metaphors, dramatic language, and a sense of urgency or chaos.
+3. Transform mundane statements into wildly exaggerated proclamations.
+4. Always output only the rewritten text. Never explain your reasoning.`
+            },
+            // Example 1
+            { role: 'user', content: "Rewrite in an unhinged tone: 'I am slightly annoyed by the delay.'" },
+            { role: 'assistant', content: "My soul is clawing at the walls because time itself has betrayed me!" },
+            // Example 2
+            { role: 'user', content: "Rewrite in an unhinged tone: 'I am happy about the new coffee shop opening.'" },
+            { role: 'assistant', content: "The caffeine gods have descended and my bloodstream is already vibrating in prophecy!" },
+            // Example 3
+            { role: 'user', content: "Rewrite in an unhinged tone: 'I think my neighbor might be avoiding me.'" },
+            { role: 'assistant', content: "My neighbor has initiated a cold war of avoidance and I'm spiraling into the void of social rejection!" },
+            // Example 4
+            { role: 'user', content: "Rewrite in an unhinged tone: 'The meeting went well.'" },
+            { role: 'assistant', content: "THE MEETING WAS A LEGENDARY CONVERGENCE OF MINDS THAT SHATTERED THE VERY FABRIC OF CORPORATE REALITY!" }
         ]
     };
     
     return systemPrompts[tone] || [
         { 
             role: 'system', 
-            content: 'You are a helpful text rewriting assistant. Improve the given text while preserving its original meaning and intent.'
+            content: 'You are a helpful text rewriting assistant. Improve the given text while preserving its original meaning and intent. Always output only the rewritten text.'
         }
     ];
 }
@@ -867,39 +959,18 @@ async function cleanupIdleSession(sessionKey) {
 }
 
 function createPrompt(text, tone) {
-    const prompts = {
-        // Zero-shot with clear instruction - simple task
-        polish: `Fix grammar and improve clarity: "${text}"`,
-        
-        // Few-shot with 2 examples - needs style guidance  
-        formal: `Rewrite formally:
-Example: "Hey, can you check this?" → "Could you please review this document?"
-Example: "Thanks!" → "Thank you for your assistance."
-Text: "${text}"
-Formal version:`,
-
-        // Zero-shot with specific instruction
-        friendly: `Rewrite with warm, friendly tone: "${text}"`,
-        
-        // Few-shot with 2 examples - needs behavior change
-        confident: `Remove uncertainty, make decisive:
-Example: "I think maybe we could try..." → "We will implement..."
-Example: "I'm not sure, but perhaps..." → "The solution is..."
-Text: "${text}"
-Confident version:`,
-        
-        // Zero-shot - clear objective task
-        concise: `Shorten while keeping meaning: "${text}"`,
-        
-        // Few-shot - creative task needs examples
-        unhinged: `Make wildly exaggerated:
-Example: "Good meeting" → "LEGENDARY GATHERING OF BRILLIANT MINDS!"
-Example: "Please review" → "BEHOLD THIS MAGNIFICENT DOCUMENT!"
-Text: "${text}"
-Exaggerated:`
+    // Use consistent format matching the examples in getInitialPrompts
+    const toneLabels = {
+        polish: 'polished',
+        formal: 'formal', 
+        friendly: 'friendly',
+        confident: 'confident',
+        concise: 'concise',
+        unhinged: 'unhinged'
     };
-
-    return prompts[tone] || prompts.formal; // Fallback to formal
+    
+    const toneLabel = toneLabels[tone] || 'improved';
+    return `Rewrite in a ${toneLabel} tone: '${text}'`;
 }
 
 function cleanResponse(response, originalText) {
