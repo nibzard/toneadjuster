@@ -520,12 +520,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
         return true; // Keep message channel open for async response
     } else if (message.action === 'rewriteTextWithAI') {
-        rewriteTextWithAI(message.text, message.tone).then(result => {
-            sendResponse({ success: true, adjustedText: result });
-        }).catch(error => {
-            console.error('Content script text rewriting failed:', error);
-            sendResponse({ success: false, error: error.message });
-        });
+        (async () => {
+            try {
+                const result = await rewriteTextWithAI(message.text, message.tone);
+                sendResponse({ success: true, adjustedText: result });
+            } catch (error) {
+                console.error('Content script text rewriting failed:', error);
+                sendResponse({ success: false, error: error.message });
+            }
+        })();
         return true; // Keep message channel open for async response
     } else {
         // Handle unknown actions
@@ -555,8 +558,8 @@ async function checkAiAvailability() {
 }
 
 // AI text rewriting function for content script
-let aiSession = null;
-let sessionTimeout = null;
+let aiSessions = {}; // Store different sessions by tone type
+let sessionTimeouts = {};
 const sessionIdleTime = 5 * 60 * 1000; // 5 minutes
 
 async function rewriteTextWithAI(text, tone) {
@@ -565,7 +568,7 @@ async function rewriteTextWithAI(text, tone) {
             throw new Error('No text provided');
         }
 
-        const session = await ensureAISession();
+        const session = await ensureAISession(tone);
         const prompt = createPrompt(text, tone);
         
         console.log(`Rewriting text with ${tone} tone:`, text.substring(0, 50) + '...');
@@ -584,13 +587,13 @@ async function rewriteTextWithAI(text, tone) {
         console.error('Text rewriting failed:', error);
         
         // If session failed, try to recreate it once
-        if (aiSession && error.message.includes('session')) {
+        if (aiSessions[tone] && error.message.includes('session')) {
             try {
-                aiSession.destroy();
-                aiSession = null;
+                aiSessions[tone].destroy();
+                delete aiSessions[tone];
                 
                 // Retry once with new session
-                const newSession = await ensureAISession();
+                const newSession = await ensureAISession(tone);
                 const prompt = createPrompt(text, tone);
                 const response = await newSession.prompt(prompt);
                 
@@ -606,8 +609,10 @@ async function rewriteTextWithAI(text, tone) {
     }
 }
 
-async function ensureAISession() {
-    if (!aiSession) {
+async function ensureAISession(tone) {
+    const sessionKey = tone || 'default';
+    
+    if (!aiSessions[sessionKey]) {
         try {
             // Check availability first
             const available = await checkAiAvailability();
@@ -615,128 +620,140 @@ async function ensureAISession() {
                 throw new Error('AI not available');
             }
             
-            // Create session with optimized parameters for Gemini Nano
-            aiSession = await LanguageModel.create({
-                temperature: 0.6, // Balanced creativity and coherence
-                topK: 3 // Focus on quality responses
+            // Get default parameters
+            const params = await LanguageModel.params();
+            
+            // Configure parameters based on tone
+            const toneConfig = getToneParameters(tone, params);
+            
+            // Create session with tone-specific parameters
+            aiSessions[sessionKey] = await LanguageModel.create({
+                temperature: toneConfig.temperature,
+                topK: toneConfig.topK
             });
             
-            console.log('AI session created successfully');
+            console.log(`AI session created for ${tone} tone:`, toneConfig);
         } catch (error) {
             console.error('Failed to create AI session:', error);
             throw new Error('AI session creation failed: ' + error.message);
         }
     }
     
-    // Reset session timeout
-    resetSessionTimeout();
+    // Reset session timeout for this specific session
+    resetSessionTimeout(sessionKey);
     
-    return aiSession;
+    return aiSessions[sessionKey];
 }
 
-function resetSessionTimeout() {
-    // Clear existing timeout
-    if (sessionTimeout) {
-        clearTimeout(sessionTimeout);
+function getToneParameters(tone, defaultParams) {
+    const baseTemp = defaultParams.defaultTemperature || 0.8;
+    const baseTopK = defaultParams.defaultTopK || 8;
+    
+    const configs = {
+        // Lower creativity - focus on correctness
+        polish: {
+            temperature: Math.max(baseTemp * 0.3, 0.1),
+            topK: Math.max(baseTopK - 5, 1)
+        },
+        
+        // Moderate creativity - structured but varied
+        formal: {
+            temperature: Math.max(baseTemp * 0.5, 0.2),
+            topK: Math.max(baseTopK - 3, 2)
+        },
+        
+        // Moderate-high creativity - warm variations
+        friendly: {
+            temperature: Math.max(baseTemp * 0.8, 0.4),
+            topK: baseTopK
+        },
+        
+        // Lower creativity - decisive and direct
+        confident: {
+            temperature: Math.max(baseTemp * 0.4, 0.2),
+            topK: Math.max(baseTopK - 4, 2)
+        },
+        
+        // Very low creativity - precise reduction
+        concise: {
+            temperature: Math.max(baseTemp * 0.2, 0.1),
+            topK: Math.max(baseTopK - 6, 1)
+        },
+        
+        // Maximum creativity - wild and varied
+        unhinged: {
+            temperature: Math.max(baseTemp * 1.5, 1.2),
+            topK: Math.min(baseTopK + 5, 40)
+        }
+    };
+    
+    return configs[tone] || {
+        temperature: baseTemp,
+        topK: baseTopK
+    };
+}
+
+function resetSessionTimeout(sessionKey) {
+    // Clear existing timeout for this session
+    if (sessionTimeouts[sessionKey]) {
+        clearTimeout(sessionTimeouts[sessionKey]);
     }
     
     // Set new timeout to cleanup idle session
-    sessionTimeout = setTimeout(() => {
-        cleanupIdleSession();
+    sessionTimeouts[sessionKey] = setTimeout(() => {
+        cleanupIdleSession(sessionKey);
     }, sessionIdleTime);
 }
 
-async function cleanupIdleSession() {
-    if (aiSession) {
+async function cleanupIdleSession(sessionKey) {
+    if (aiSessions[sessionKey]) {
         try {
-            console.log('Cleaning up idle AI session');
-            await aiSession.destroy();
-            aiSession = null;
+            console.log(`Cleaning up idle AI session: ${sessionKey}`);
+            await aiSessions[sessionKey].destroy();
+            delete aiSessions[sessionKey];
         } catch (error) {
-            console.warn('Error cleaning up idle session:', error);
-            aiSession = null; // Force cleanup even if destroy fails
+            console.warn(`Error cleaning up idle session ${sessionKey}:`, error);
+            delete aiSessions[sessionKey]; // Force cleanup even if destroy fails
         }
     }
     
-    if (sessionTimeout) {
-        clearTimeout(sessionTimeout);
-        sessionTimeout = null;
+    if (sessionTimeouts[sessionKey]) {
+        clearTimeout(sessionTimeouts[sessionKey]);
+        delete sessionTimeouts[sessionKey];
     }
 }
 
 function createPrompt(text, tone) {
     const prompts = {
-        polish: `You are a professional writing editor with expertise in improving text clarity and impact. I need you to polish this text while preserving its original meaning and intent.
-
-Please enhance the text by:
-- Correcting any grammar, spelling, or punctuation errors
-- Improving sentence flow and readability
-- Choosing stronger, more precise vocabulary
-- Maintaining the author's voice and style
-
-Text to polish: "${text}"
-
-Return only the improved version:`,
+        // Zero-shot with clear instruction - simple task
+        polish: `Fix grammar and improve clarity: "${text}"`,
         
-        formal: `You are a business communication specialist. I need you to transform this text into a professional, formal tone suitable for workplace or academic settings.
-
-Please rewrite the text to be:
-- Professional and respectful in tone
-- Clear and direct in communication
-- Appropriate for formal business or academic contexts
-- Free from casual language or slang
-
-Original text: "${text}"
-
+        // Few-shot with 2 examples - needs style guidance  
+        formal: `Rewrite formally:
+Example: "Hey, can you check this?" → "Could you please review this document?"
+Example: "Thanks!" → "Thank you for your assistance."
+Text: "${text}"
 Formal version:`,
+
+        // Zero-shot with specific instruction
+        friendly: `Rewrite with warm, friendly tone: "${text}"`,
         
-        friendly: `You are a communication coach specializing in warm, approachable writing. I need you to rewrite this text to sound more friendly and welcoming while keeping the core message intact.
-
-Please make the text:
-- Warm and personable in tone
-- Approachable and easy to connect with
-- Positive and encouraging
-- Natural and conversational
-
-Text to make friendly: "${text}"
-
-Friendly version:`,
-        
-        confident: `You are an assertiveness coach helping people communicate with more confidence. I need you to rewrite this text to project strength and certainty while remaining professional.
-
-Please transform the text to be:
-- Confident and self-assured
-- Clear and decisive
-- Free from hedging words like "maybe," "perhaps," "I think"
-- Strong and authoritative without being aggressive
-
-Text to strengthen: "${text}"
-
+        // Few-shot with 2 examples - needs behavior change
+        confident: `Remove uncertainty, make decisive:
+Example: "I think maybe we could try..." → "We will implement..."
+Example: "I'm not sure, but perhaps..." → "The solution is..."
+Text: "${text}"
 Confident version:`,
         
-        concise: `You are an editor specializing in clear, concise communication. I need you to condense this text to its essential points while preserving all important information.
-
-Please make the text:
-- Brief and to-the-point
-- Free from unnecessary words and filler
-- Clear and direct
-- Focused on key information only
-
-Text to condense: "${text}"
-
-Concise version:`,
+        // Zero-shot - clear objective task
+        concise: `Shorten while keeping meaning: "${text}"`,
         
-        unhinged: `You are a creative writer with a talent for over-the-top, humorous expression. I need you to completely transform this text into something wildly exaggerated and entertaining.
-
-Please rewrite the text to be:
-- Dramatically exaggerated and theatrical
-- Unexpectedly funny or absurd
-- Creative and unconventional
-- Energetic and chaotic while keeping the core message recognizable
-
-Text to make unhinged: "${text}"
-
-Unhinged version:`
+        // Few-shot - creative task needs examples
+        unhinged: `Make wildly exaggerated:
+Example: "Good meeting" → "LEGENDARY GATHERING OF BRILLIANT MINDS!"
+Example: "Please review" → "BEHOLD THIS MAGNIFICENT DOCUMENT!"
+Text: "${text}"
+Exaggerated:`
     };
 
     return prompts[tone] || prompts.formal; // Fallback to formal
@@ -745,29 +762,24 @@ Unhinged version:`
 function cleanResponse(response, originalText) {
     let cleaned = response.trim();
     
-    // Remove common AI artifacts and labels
-    const artifactPatterns = [
-        /^(Here's the |Here is the )?([A-Z][a-z]+ version|[A-Z][a-z]+ text):?\s*/i,
-        /^"(.*)"$/s, // Remove surrounding quotes
-        /^\[(.*)\]$/s, // Remove surrounding brackets
-        /^Answer:\s*/i,
-        /^Response:\s*/i,
-        /^Output:\s*/i
-    ];
-    
-    for (const pattern of artifactPatterns) {
-        const match = cleaned.match(pattern);
-        if (match) {
-            cleaned = match[1] || match[0].replace(pattern, '');
-            break;
-        }
+    // Remove surrounding quotes if present
+    if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+        cleaned = cleaned.slice(1, -1);
     }
     
-    // Ensure we don't return empty or just the original text
-    cleaned = cleaned.trim();
-    if (!cleaned || cleaned === originalText) {
-        console.warn('Response cleaning resulted in empty or unchanged text');
-        return response.trim(); // Return original response
+    // Remove any remaining "Output:" prefix that might appear
+    cleaned = cleaned.replace(/^Output:\s*/i, '');
+    
+    // Take only the first line/paragraph if there are multiple
+    const lines = cleaned.split('\n');
+    if (lines.length > 1 && lines[0].trim().length > 0) {
+        cleaned = lines[0].trim();
+    }
+    
+    // Ensure we don't return empty text
+    if (!cleaned || cleaned.length < 3) {
+        console.warn('Response cleaning resulted in very short text, using original response');
+        return response.trim();
     }
     
     return cleaned;
