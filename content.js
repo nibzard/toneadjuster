@@ -28,8 +28,10 @@ class ToneAdjuster {
     }
     
     init() {
+        console.log('🚀 Tone Adjuster content script initializing...');
         this.attachEventListeners();
         this.injectStyles();
+        console.log('✅ Tone Adjuster content script initialized successfully');
     }
     
     attachEventListeners() {
@@ -583,7 +585,7 @@ class ToneAdjuster {
 
 // Add message listener for background script communication
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    console.log('Content script received message:', message);
+    console.log('🔄 Content script received message:', message.action, message);
     
     if (message.action === 'checkAiAvailability') {
         checkAiAvailability().then(available => {
@@ -594,16 +596,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
         return true; // Keep message channel open for async response
     } else if (message.action === 'rewriteTextWithAI') {
+        console.log('🎭 Processing rewriteTextWithAI request...');
         (async () => {
             try {
                 const result = await rewriteTextWithAI(message.text, message.tone);
+                console.log('✅ Text rewriting successful:', result.substring(0, 100) + '...');
                 sendResponse({ success: true, adjustedText: result });
             } catch (error) {
-                console.error('Content script text rewriting failed:', error);
+                console.error('❌ Content script text rewriting failed:', error);
                 sendResponse({ success: false, error: error.message });
             }
         })();
         return true; // Keep message channel open for async response
+    } else if (message.action === 'replaceText') {
+        // Handle text replacement in the current page
+        console.log('Received replaceText request:', message);
+        try {
+            // For now, just log this - in a full implementation we'd replace text in the DOM
+            console.log(`Replace "${message.originalText}" with "${message.newText}" (${message.tone} tone)`);
+            sendResponse({ success: true });
+        } catch (error) {
+            console.error('Text replacement failed:', error);
+            sendResponse({ success: false, error: error.message });
+        }
+        return false; // Synchronous response
+    } else if (message.action === 'error') {
+        // Handle error messages from background script
+        console.error('Background script error:', message.message);
+        // Could show user notification here
+        return false; // No response needed
     } else {
         // Handle unknown actions
         console.warn('Unknown action received:', message.action);

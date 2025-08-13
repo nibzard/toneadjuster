@@ -223,34 +223,65 @@ async function testToneAdjustment() {
     }
 }
 
-// Direct tone adjustment for non-extension context
+// Direct tone adjustment using improved prompting system
 async function testDirectToneAdjustment(text, tone) {
+    // Try to use content script system first (which has the new prompts)
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
+        logToConsole('🔗 Using content script with improved prompting system...', 'info');
+        
+        try {
+            const response = await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('Timeout waiting for content script'));
+                }, 15000);
+                
+                chrome.runtime.sendMessage({
+                    action: 'rewriteText',
+                    text: text,
+                    tone: tone
+                }, (response) => {
+                    clearTimeout(timeout);
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else {
+                        resolve(response);
+                    }
+                });
+            });
+            
+            if (response && response.success) {
+                logToConsole('✅ Content script tone adjustment successful', 'success');
+                return response.adjustedText;
+            } else {
+                throw new Error(response?.error || 'Content script rewriting failed');
+            }
+        } catch (error) {
+            logToConsole(`⚠️ Content script failed, falling back to direct API: ${error.message}`, 'warn');
+        }
+    }
+    
+    // Fallback to direct API with improved prompts
+    logToConsole('🔗 Using direct LanguageModel API with improved prompting...', 'info');
+    
     const session = await LanguageModel.create({
         temperature: 0.6,
         topK: 3
     });
     
-    const prompts = {
-        formal: `Transform this text to be more formal and professional: "${text}"`,
-        friendly: `Make this text more friendly and warm: "${text}"`,
-        confident: `Rewrite this text to sound more confident: "${text}"`,
-        concise: `Make this text more concise and to-the-point: "${text}"`,
-        polish: `Polish and improve this text: "${text}"`,
-        unhinged: `Make this text wildly exaggerated and entertaining: "${text}"`
-    };
-    
-    const prompt = prompts[tone] || prompts.formal;
-    logToConsole(`Using prompt: "${prompt.substring(0, 100)}..."`, 'info');
+    // Use the same consistent format as the content script
+    const prompt = `Rewrite in a ${tone} tone: '${text}'`;
+    logToConsole(`Using prompt: "${prompt}"`, 'info');
     
     const response = await session.prompt(prompt);
     await session.destroy();
+    
+    logToConsole('✅ Direct API tone adjustment successful', 'success');
     
     const resultDiv = document.getElementById('toneResult');
     resultDiv.textContent = `Original: "${text}"\n\nAdjusted (${tone}): "${response}"`;
     resultDiv.className = 'result success';
     
-    logToConsole(`✅ Direct tone adjustment successful`, 'success');
-    logToConsole(`Result: "${response}"`, 'success');
+    return response;
 }
 
 // Utility functions
