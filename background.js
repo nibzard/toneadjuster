@@ -2,7 +2,12 @@
 // Handles context menus and delegates AI operations to content scripts
 
 // Import settings storage module
-importScripts('settings-storage.js');
+try {
+  importScripts('settings-storage.js');
+  console.log('✅ Settings storage module loaded successfully');
+} catch (error) {
+  console.error('❌ Failed to load settings storage module:', error);
+}
 
 class ToneAdjuster {
   constructor() {
@@ -29,10 +34,31 @@ class ToneAdjuster {
   async initialize() {
     if (this.isInitialized) return;
     
+    console.log('🚀 Background script initializing...');
+    
     try {
-      // Load settings first
-      this.settings = await settingsStorage.getSettings();
-      console.log('Settings loaded:', this.settings);
+      // Check if settingsStorage is available
+      if (typeof settingsStorage === 'undefined') {
+        console.error('❌ settingsStorage is not available - using default settings');
+        this.settings = {
+          defaultTone: 'polish',
+          autoAccept: false,
+          showTooltip: true,
+          enableContextMenu: true,
+          creativity: 0.8,
+          sessionTimeout: 10,
+          maxTextLength: 5000,
+          theme: 'system',
+          animationsEnabled: true,
+          compactMode: false,
+          enableTelemetry: false,
+          debugMode: false
+        };
+      } else {
+        // Load settings first
+        this.settings = await settingsStorage.getSettings();
+        console.log('✅ Settings loaded:', this.settings);
+      }
       
       // Create context menu items (respecting settings)
       await this.createContextMenus();
@@ -272,10 +298,36 @@ class ToneAdjuster {
           
         case 'getSettings':
           // Provide current settings to other parts of the extension
-          if (!this.settings) {
-            this.settings = await settingsStorage.getSettings();
+          console.log('📋 getSettings request received');
+          try {
+            if (!this.settings) {
+              console.log('⚠️ Settings not loaded, loading now...');
+              if (typeof settingsStorage !== 'undefined') {
+                this.settings = await settingsStorage.getSettings();
+              } else {
+                console.error('❌ settingsStorage not available, using defaults');
+                this.settings = {
+                  defaultTone: 'polish',
+                  autoAccept: false,
+                  showTooltip: true,
+                  enableContextMenu: true,
+                  creativity: 0.8,
+                  sessionTimeout: 10,
+                  maxTextLength: 5000,
+                  theme: 'system',
+                  animationsEnabled: true,
+                  compactMode: false,
+                  enableTelemetry: false,
+                  debugMode: false
+                };
+              }
+            }
+            console.log('✅ Responding with settings:', this.settings);
+            safeResponse({ success: true, settings: this.settings });
+          } catch (error) {
+            console.error('❌ Error getting settings:', error);
+            safeResponse({ success: false, error: error.message });
           }
-          safeResponse({ success: true, settings: this.settings });
           break;
         case 'rewriteText':
           // Validate input parameters

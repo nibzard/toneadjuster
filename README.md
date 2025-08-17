@@ -1,7 +1,7 @@
 # The Tone Adjuster 🎨
 
 [![Chrome Web Store](https://img.shields.io/badge/Chrome-Extension-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chrome.google.com/webstore)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge)](https://github.com/nibzard/toneadjuster/releases)
+[![Version](https://img.shields.io/badge/version-1.4.0-blue?style=for-the-badge)](https://github.com/nibzard/toneadjuster/releases)
 [![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)](LICENSE)
 [![Chrome](https://img.shields.io/badge/Chrome-138%2B-orange?style=for-the-badge)](https://www.google.com/chrome/)
 [![Privacy](https://img.shields.io/badge/Privacy-First-purple?style=for-the-badge&logo=shield&logoColor=white)](https://github.com/nibzard/toneadjuster#-privacy--security)
@@ -17,6 +17,7 @@ The Tone Adjuster is a privacy-focused Chrome extension that leverages Chrome's 
 - **🔐 100% Private**: All AI processing happens locally using Chrome's Gemini Nano model
 - **⚡ Lightning Fast**: On-device processing means instant results
 - **🎯 6 Tone Options**: From professional to playful, find the perfect voice
+- **⚙️ Customizable Settings**: Configure AI parameters and prompts for each tone
 - **👆 Easy to Use**: Just select, right-click, and choose your tone
 - **🌐 Works Everywhere**: Compatible with any text field on any website
 - **🚫 No External APIs**: Zero network requests, zero data collection
@@ -67,18 +68,10 @@ The extension will be available on the Chrome Web Store soon!
    cd toneadjuster
    ```
 
-2. **Enable Chrome AI**
-   - Navigate to `chrome://flags`
-   - Search for "Prompt API" or "AI"
-   - Enable relevant flags
-   - Restart Chrome
-
-3. **Install the Extension**
-   - Open Chrome and go to `chrome://extensions/`
-   - Enable "Developer mode" (toggle in top right)
-   - Click "Load unpacked"
-   - Select the `toneadjuster` folder
-   - The extension icon will appear in your toolbar!
+2. **Load the Extension**
+   - Follow the complete setup guide in [LOAD_EXTENSION.md](LOAD_EXTENSION.md)
+   - Includes Chrome AI setup, troubleshooting, and testing instructions
+   - The extension icon will appear in your toolbar once loaded!
 
 ## 📋 Requirements
 
@@ -101,8 +94,11 @@ The extension will be available on the Chrome Web Store soon!
 3. Click on your desired tone
 4. Approve or reject the adjusted text
 
-### Method 3: Keyboard Shortcut (Coming Soon)
-- Select text and press `Ctrl+Shift+T` (Windows/Linux) or `Cmd+Shift+T` (Mac)
+### Method 3: Settings Panel
+1. Click the extension icon in the toolbar
+2. Click "Settings" to customize each tone
+3. Adjust AI parameters and prompts to your preference
+4. Changes are saved automatically
 
 ## 🔒 Privacy & Security
 
@@ -142,22 +138,30 @@ cd toneadjuster
 ### Project Structure
 ```
 toneadjuster/
-├── manifest.json       # Extension configuration
-├── background.js       # Service worker for AI processing
-├── content.js          # Content script for UI interaction
-├── popup.html/js       # Extension popup interface
-├── styles.css          # Styling for UI components
-├── icons/              # Extension icons
-└── docs/               # Documentation
+├── manifest.json          # Extension configuration
+├── background.js          # Service worker for AI processing
+├── content.js             # Content script for UI interaction
+├── popup.html/js          # Extension popup interface
+├── settings.html/js/css   # Settings panel interface
+├── settings-storage.js    # Settings persistence
+├── settings-validator.js  # Input validation
+├── content-styles.css     # Styling for UI components
+├── icons/                 # Extension icons
+├── test-*.html           # Development test pages
+└── LOAD_EXTENSION.md     # Setup and troubleshooting guide
 ```
 
 ### Testing
-Run the test suite:
+Use the included test pages:
 ```bash
-# Manual testing checklist
-cat TEST_CASES.md
+# Open the main test page
+open test-extension.html
 
-# Follow the test cases to ensure everything works
+# Test settings functionality
+open test-settings.html
+
+# Follow the setup guide for troubleshooting
+cat LOAD_EXTENSION.md
 ```
 
 ## 🤝 Contributing
@@ -183,23 +187,23 @@ Please read our [Contributing Guidelines](CONTRIBUTING.md) for details on our co
 
 ## 📝 Roadmap
 
-### Version 1.1 (Q1 2025)
-- [ ] Custom tone creation
-- [ ] Keyboard shortcuts
-- [ ] History of adjustments
-- [ ] Bulk text processing
+### Version 1.5 (Q1 2025)
+- [ ] Keyboard shortcuts for quick access
+- [ ] History of adjustments with undo/redo
+- [ ] Bulk text processing for multiple selections
+- [ ] Export/import settings profiles
 
-### Version 1.2 (Q2 2025)
+### Version 1.6 (Q2 2025)
 - [ ] Additional languages support
 - [ ] Integration with popular web apps
 - [ ] Advanced formatting preservation
-- [ ] Tone strength slider
+- [ ] Custom tone creation wizard
 
 ### Future Features
-- [ ] Team collaboration features
-- [ ] API for developers
-- [ ] Mobile companion app
-- [ ] Voice input support
+- [ ] Team collaboration and shared settings
+- [ ] API for developers and integrations
+- [ ] Voice input and audio output
+- [ ] Advanced analytics and insights
 
 ## 🐛 Known Issues
 

@@ -33,7 +33,7 @@ class ToneAdjuster {
     async init() {
         console.log('🚀 Tone Adjuster content script initializing...');
         
-        // Load settings from background script
+        // Load settings from background script (with fallback)
         await this.loadSettings();
         
         this.attachEventListeners();
@@ -42,46 +42,54 @@ class ToneAdjuster {
     }
     
     async loadSettings() {
+        // Set default settings first
+        this.settings = {
+            defaultTone: 'polish',
+            autoAccept: false,
+            showTooltip: true,
+            enableContextMenu: true,
+            creativity: 0.8,
+            sessionTimeout: 10,
+            maxTextLength: 5000,
+            theme: 'system',
+            animationsEnabled: true,
+            compactMode: false,
+            enableTelemetry: false,
+            debugMode: false
+        };
+
         try {
-            const response = await chrome.runtime.sendMessage({ action: 'getSettings' });
+            // Try to load settings from background script with timeout
+            const response = await this.sendMessageWithRetry({ action: 'getSettings' }, 3);
             if (response && response.success) {
                 this.settings = response.settings;
-                console.log('Settings loaded in content script:', this.settings);
+                console.log('Settings loaded from background script:', this.settings);
             } else {
-                // Use default settings if unable to load
-                this.settings = {
-                    defaultTone: 'polish',
-                    autoAccept: false,
-                    showTooltip: true,
-                    enableContextMenu: true,
-                    creativity: 0.8,
-                    sessionTimeout: 10,
-                    maxTextLength: 5000,
-                    theme: 'system',
-                    animationsEnabled: true,
-                    compactMode: false,
-                    enableTelemetry: false,
-                    debugMode: false
-                };
-                console.log('Using default settings in content script');
+                console.log('Using default settings - background response was unsuccessful');
             }
         } catch (error) {
-            console.error('Failed to load settings in content script:', error);
-            // Use default settings as fallback
-            this.settings = {
-                defaultTone: 'polish',
-                autoAccept: false,
-                showTooltip: true,
-                enableContextMenu: true,
-                creativity: 0.8,
-                sessionTimeout: 10,
-                maxTextLength: 5000,
-                theme: 'system',
-                animationsEnabled: true,
-                compactMode: false,
-                enableTelemetry: false,
-                debugMode: false
-            };
+            console.log('Using default settings - could not connect to background script:', error.message);
+        }
+    }
+
+    async sendMessageWithRetry(message, maxRetries = 3, delayMs = 100) {
+        // Check if chrome.runtime is available
+        if (!chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
+            throw new Error('Chrome runtime not available');
+        }
+
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                return await chrome.runtime.sendMessage(message);
+            } catch (error) {
+                console.log(`Message attempt ${i + 1}/${maxRetries} failed:`, error.message);
+                
+                if (i === maxRetries - 1) {
+                    throw error;
+                }
+                // Wait before retrying with exponential backoff
+                await new Promise(resolve => setTimeout(resolve, delayMs * Math.pow(2, i)));
+            }
         }
     }
     
@@ -454,12 +462,12 @@ class ToneAdjuster {
             
             console.log(`Starting tone adjustment: ${tone} for "${this.selectedText.substring(0, 50)}..."`);
             
-            // Send message to background script for AI processing
-            const response = await chrome.runtime.sendMessage({
+            // Send message to background script for AI processing with retry
+            const response = await this.sendMessageWithRetry({
                 action: 'rewriteText',
                 text: this.selectedText,
                 tone: tone
-            });
+            }, 5, 200); // More retries and longer delay for AI processing
             
             if (!response) {
                 throw new Error('No response received from background script');

@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(gh repo create:*)",
-      "WebFetch(domain:developer.chrome.com)"
+      "WebFetch(domain:developer.chrome.com)",
+      "Bash(git push:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
