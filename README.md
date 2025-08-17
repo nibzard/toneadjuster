@@ -10,7 +10,7 @@
 
 ## 🌟 Overview
 
-The Tone Adjuster is a privacy-focused Chrome extension that leverages Chrome's built-in AI capabilities to help you adjust the tone of your text directly within your browser. Whether you need to make an email more formal, a message friendlier, or a response more concise, this extension has you covered - all while keeping your data completely private.
+The Tone Adjuster is a privacy-focused Chrome extension that leverages Chrome's built-in AI capabilities to help you adjust the tone of your text directly within your browser. Whether you need to make a post more engaging, a message friendlier, or a response more concise, this extension has you covered - all while keeping your data completely private.
 
 ### ✨ Key Features
 
@@ -48,7 +48,7 @@ Quick access to all features:
 | Tone | Icon | Description | Perfect For |
 |------|------|-------------|-------------|
 | **Polish** | 💎 | Fix grammar, spelling, and improve clarity | Proofreading and refinement |
-| **Formal** | 📋 | Professional and business-appropriate | Work emails, reports, documentation |
+| **Engaging** | 📋 | Captivating and social media-ready | Social posts, marketing, engagement |
 | **Friendly** | 😊 | Warm and approachable | Personal messages, casual communication |
 | **Confident** | 💪 | Assertive and decisive | Proposals, negotiations, leadership |
 | **Concise** | ⚡ | Brief and to the point | Summaries, quick updates, tweets |

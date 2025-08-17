@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tone Adjuster Extension Test</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+        }
+        .test-area {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .contenteditable {
+            min-height: 100px;
+            padding: 10px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .instructions {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 Tone Adjuster Extension Test Page</h1>
+
+    <div class="instructions">
+        <h2>Instructions:</h2>
+        <ol>
+            <li>Load this extension in Chrome (chrome://extensions/ → Developer mode → Load unpacked)</li>
+            <li><strong>IMPORTANT:</strong> Click the reload button (↻) on the extension card in chrome://extensions/</li>
+            <li><strong>IMPORTANT:</strong> Refresh this test page (F5 or Cmd+R)</li>
+            <li>Open DevTools Console (F12) to see debug logs</li>
+            <li>Select text in any of the fields below</li>
+            <li>Either:
+                <ul>
+                    <li><strong>Right-click</strong> and choose "Adjust Tone" from the context menu</li>
+                    <li>Or wait for the tooltip to appear above your selection</li>
+                </ul>
+            </li>
+            <li>Choose a tone option - the text will be replaced automatically!</li>
+        </ol>
+    </div>
+
+    <div class="status">
+        <strong>AI Availability:</strong> <span id="ai-status">Checking...</span>
+    </div>
+
+    <div class="status" style="background: #e8f5e8; border-color: #4caf50;">
+        <strong>🏆 FLICKER FIX:</strong> 
+        • Prevented processSelection from recreating tooltip during interactions<br>
+        • Added guards to block tooltip recreation when one already exists<br>
+        • Fixed multiple tooltip creation cycles that caused flickering<br>
+        • Single tooltip lifecycle: Create → Interact → Process → Hide
+    </div>
+
+    <div class="test-area">
+        <h3>Test Area 1: Input Field</h3>
+        <input type="text" placeholder="Type or paste text here, then select it to adjust tone" value="I think maybe we could try this approach if you have time">
+    </div>
+
+    <div class="test-area">
+        <h3>Test Area 2: Textarea</h3>
+        <textarea placeholder="Type or paste longer text here">Hey, can you check this out when you get a chance? I've been working on it for a while and I'm not sure if it's quite right but I think it might be okay. Let me know what you think!</textarea>
+    </div>
+
+    <div class="test-area">
+        <h3>Test Area 3: Contenteditable Div</h3>
+        <div class="contenteditable" contenteditable="true">
+            This is a contenteditable div. You can edit this text directly. Their going to the meeting tommorrow morning and we should probably discuss the report that needs reviewing.
+        </div>
+    </div>
+
+    <div class="test-area">
+        <h3>Sample Text for Testing Different Tones:</h3>
+        <ul>
+            <li><strong>Polish:</strong> "I seen the report you sended me yesterday"</li>
+            <li><strong>Engaging:</strong> "Thanks for the help with this!"</li>
+            <li><strong>Friendly:</strong> "Your request has been processed."</li>
+            <li><strong>Confident:</strong> "I think maybe we could possibly try this."</li>
+            <li><strong>Concise:</strong> "I wanted to reach out to see if you might be available."</li>
+            <li><strong>Unhinged:</strong> "I am slightly annoyed about the coffee situation."</li>
+        </ul>
+    </div>
+
+    <script>
+        // Check AI availability
+        async function checkAI() {
+            const statusEl = document.getElementById('ai-status');
+            try {
+                if (typeof LanguageModel === 'undefined') {
+                    statusEl.textContent = '❌ LanguageModel API not available';
+                    statusEl.style.color = 'red';
+                    return;
+                }
+                
+                const availability = await LanguageModel.availability();
+                
+                if (availability === 'readily') {
+                    statusEl.textContent = '✅ AI is ready to use';
+                    statusEl.style.color = 'green';
+                } else if (availability === 'available') {
+                    statusEl.textContent = '⏳ AI is available (may need download)';
+                    statusEl.style.color = 'orange';
+                } else {
+                    statusEl.textContent = `❌ AI not available (status: ${availability})`;
+                    statusEl.style.color = 'red';
+                }
+            } catch (error) {
+                statusEl.textContent = `❌ Error: ${error.message}`;
+                statusEl.style.color = 'red';
+            }
+        }
+        
+        // Check on load
+        checkAI();
+        
+        // Also listen for extension messages
+        window.addEventListener('message', (event) => {
+            console.log('Page received message:', event.data);
+        });
+    </script>
+</body>
+</html>

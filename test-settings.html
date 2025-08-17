@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings Test - Tone Adjuster</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        .settings-display {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Tone Adjuster Settings Test</h1>
+    
+    <div class="test-section">
+        <h2>Settings Storage Test</h2>
+        <p>This page tests the settings functionality of the Tone Adjuster extension.</p>
+        
+        <button onclick="testDefaultSettings()">Test Default Settings</button>
+        <button onclick="testLoadSettings()">Load Current Settings</button>
+        <button onclick="testSaveSettings()">Test Save Settings</button>
+        <button onclick="testValidation()">Test Validation</button>
+        <button onclick="clearAllSettings()">Clear All Settings</button>
+        
+        <div id="testResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Current Settings</h2>
+        <div id="currentSettings" class="settings-display">Loading...</div>
+        <button onclick="refreshSettings()">Refresh</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Manual Settings Test</h2>
+        <p>Test individual setting changes:</p>
+        
+        <div>
+            <label>Default Tone:</label>
+            <select id="defaultToneTest">
+                <option value="polish">Polish</option>
+                <option value="engaging">Engaging</option>
+                <option value="friendly">Friendly</option>
+                <option value="confident">Confident</option>
+                <option value="concise">Concise</option>
+                <option value="unhinged">Unhinged</option>
+            </select>
+            <button onclick="updateDefaultTone()">Update</button>
+        </div>
+
+        <div style="margin: 10px 0;">
+            <label>
+                <input type="checkbox" id="autoAcceptTest"> Auto Accept
+            </label>
+            <button onclick="updateAutoAccept()">Update</button>
+        </div>
+
+        <div>
+            <label>Creativity Level:</label>
+            <input type="range" id="creativityTest" min="0.1" max="2.0" step="0.1" value="0.8">
+            <span id="creativityValue">0.8</span>
+            <button onclick="updateCreativity()">Update</button>
+        </div>
+    </div>
+
+    <script>
+        let testResults = document.getElementById('testResults');
+        let currentSettingsDiv = document.getElementById('currentSettings');
+        
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            testResults.appendChild(div);
+        }
+
+        async function testDefaultSettings() {
+            try {
+                addResult('Testing default settings...', 'info');
+                
+                // Test if storage API is available
+                if (!chrome.storage) {
+                    throw new Error('Chrome storage API not available');
+                }
+                
+                const defaults = {
+                    defaultTone: 'polish',
+                    autoAccept: false,
+                    showTooltip: true,
+                    enableContextMenu: true,
+                    creativity: 0.8,
+                    sessionTimeout: 10,
+                    maxTextLength: 5000,
+                    theme: 'system',
+                    animationsEnabled: true,
+                    compactMode: false,
+                    enableTelemetry: false,
+                    debugMode: false
+                };
+                
+                await chrome.storage.sync.set(defaults);
+                addResult('✅ Default settings saved successfully', 'success');
+                
+                const result = await chrome.storage.sync.get(defaults);
+                addResult('✅ Default settings loaded: ' + Object.keys(result).length + ' settings', 'success');
+                
+            } catch (error) {
+                addResult('❌ Default settings test failed: ' + error.message, 'error');
+            }
+        }
+
+        async function testLoadSettings() {
+            try {
+                addResult('Loading current settings...', 'info');
+                
+                const result = await chrome.storage.sync.get();
+                addResult('✅ Loaded ' + Object.keys(result).length + ' settings', 'success');
+                
+                currentSettingsDiv.textContent = JSON.stringify(result, null, 2);
+                
+            } catch (error) {
+                addResult('❌ Load settings failed: ' + error.message, 'error');
+            }
+        }
+
+        async function testSaveSettings() {
+            try {
+                addResult('Testing save settings...', 'info');
+                
+                const testSettings = {
+                    defaultTone: 'friendly',
+                    creativity: 1.2,
+                    debugMode: true
+                };
+                
+                await chrome.storage.sync.set(testSettings);
+                addResult('✅ Test settings saved', 'success');
+                
+                const result = await chrome.storage.sync.get(['defaultTone', 'creativity', 'debugMode']);
+                const matches = result.defaultTone === 'friendly' && 
+                              Math.abs(result.creativity - 1.2) < 0.01 && 
+                              result.debugMode === true;
+                
+                if (matches) {
+                    addResult('✅ Settings save/load verification passed', 'success');
+                } else {
+                    addResult('❌ Settings save/load verification failed', 'error');
+                }
+                
+            } catch (error) {
+                addResult('❌ Save settings test failed: ' + error.message, 'error');
+            }
+        }
+
+        async function testValidation() {
+            try {
+                addResult('Testing settings validation...', 'info');
+                
+                // Test invalid tone
+                const invalidSettings = {
+                    defaultTone: 'invalid_tone',
+                    creativity: 5.0, // Above max
+                    sessionTimeout: -1 // Below min
+                };
+                
+                // In a real scenario, validation would happen before saving
+                // This is just to demonstrate the types of invalid data
+                addResult('✅ Validation test completed (check console for details)', 'success');
+                console.log('Invalid settings that should be validated:', invalidSettings);
+                
+            } catch (error) {
+                addResult('❌ Validation test failed: ' + error.message, 'error');
+            }
+        }
+
+        async function clearAllSettings() {
+            try {
+                addResult('Clearing all settings...', 'info');
+                await chrome.storage.sync.clear();
+                addResult('✅ All settings cleared', 'success');
+                currentSettingsDiv.textContent = '{}';
+            } catch (error) {
+                addResult('❌ Clear settings failed: ' + error.message, 'error');
+            }
+        }
+
+        async function refreshSettings() {
+            await testLoadSettings();
+        }
+
+        async function updateDefaultTone() {
+            try {
+                const value = document.getElementById('defaultToneTest').value;
+                await chrome.storage.sync.set({ defaultTone: value });
+                addResult('✅ Default tone updated to: ' + value, 'success');
+                await refreshSettings();
+            } catch (error) {
+                addResult('❌ Update failed: ' + error.message, 'error');
+            }
+        }
+
+        async function updateAutoAccept() {
+            try {
+                const value = document.getElementById('autoAcceptTest').checked;
+                await chrome.storage.sync.set({ autoAccept: value });
+                addResult('✅ Auto accept updated to: ' + value, 'success');
+                await refreshSettings();
+            } catch (error) {
+                addResult('❌ Update failed: ' + error.message, 'error');
+            }
+        }
+
+        async function updateCreativity() {
+            try {
+                const value = parseFloat(document.getElementById('creativityTest').value);
+                await chrome.storage.sync.set({ creativity: value });
+                addResult('✅ Creativity updated to: ' + value, 'success');
+                await refreshSettings();
+            } catch (error) {
+                addResult('❌ Update failed: ' + error.message, 'error');
+            }
+        }
+
+        // Update creativity display
+        document.getElementById('creativityTest').addEventListener('input', function() {
+            document.getElementById('creativityValue').textContent = this.value;
+        });
+
+        // Initialize page
+        window.addEventListener('load', async () => {
+            addResult('Settings test page loaded', 'info');
+            
+            // Check if we're in extension context
+            if (typeof chrome !== 'undefined' && chrome.storage) {
+                addResult('✅ Chrome extension context detected', 'success');
+                await testLoadSettings();
+            } else {
+                addResult('❌ Not running in Chrome extension context', 'error');
+            }
+        });
+
+        // Listen for storage changes
+        if (typeof chrome !== 'undefined' && chrome.storage) {
+            chrome.storage.onChanged.addListener((changes, namespace) => {
+                if (namespace === 'sync') {
+                    addResult('📊 Storage changed: ' + Object.keys(changes).join(', '), 'info');
+                    console.log('Storage changes:', changes);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -7,7 +7,8 @@
     
     "permissions": [
         "tabs",
-        "contextMenus"
+        "contextMenus",
+        "storage"
     ],
     
     "host_permissions": [
@@ -28,7 +29,7 @@
     
     "web_accessible_resources": [
         {
-            "resources": ["content-styles.css", "test.html", "test.js"],
+            "resources": ["content-styles.css", "settings.html", "settings.js", "settings.css", "settings-storage.js", "test.html", "test.js"],
             "matches": ["<all_urls>"]
         }
     ],

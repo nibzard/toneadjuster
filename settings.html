@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tone Adjuster Settings</title>
+    <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+    <div class="settings-container">
+        <!-- Header -->
+        <header class="settings-header">
+            <div class="header-content">
+                <button class="back-button" id="backButton" title="Back to Extension">
+                    <span class="back-icon">←</span>
+                </button>
+                <div class="header-title">
+                    <div class="logo">⚙️</div>
+                    <h1>Settings</h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="settings-main">
+            <!-- General Settings -->
+            <section class="settings-section">
+                <h2 class="section-title">
+                    <span class="section-icon">🎯</span>
+                    General
+                </h2>
+                
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label for="defaultTone">Default Tone</label>
+                            <p class="setting-description">The tone to select first when opening the tone menu</p>
+                        </div>
+                        <div class="setting-control">
+                            <select id="defaultTone" class="setting-select">
+                                <option value="polish">💎 Polish</option>
+                                <option value="engaging">📋 Engaging</option>
+                                <option value="friendly">😊 Friendly</option>
+                                <option value="confident">💪 Confident</option>
+                                <option value="concise">⚡ Concise</option>
+                                <option value="unhinged">🤪 Unhinged</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label for="autoAccept">Auto-accept suggestions</label>
+                            <p class="setting-description">Automatically replace text without showing preview</p>
+                        </div>
+                        <div class="setting-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="autoAccept">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label for="showTooltip">Show tooltip on selection</label>
+                            <p class="setting-description">Display the tone adjustment tooltip when text is selected</p>
+                        </div>
+                        <div class="setting-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="showTooltip" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label for="enableContextMenu">Enable context menu</label>
+                            <p class="setting-description">Show "Adjust Tone" option in right-click menu</p>
+                        </div>
+                        <div class="setting-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="enableContextMenu" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- AI Settings -->
+            <section class="settings-section">
+                <h2 class="section-title">
+                    <span class="section-icon">🤖</span>
+                    AI Behavior
+                </h2>
+                
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label for="creativity">Creativity Level</label>
+                            <p class="setting-description">Higher values make suggestions more creative and varied</p>
+                        </div>
+                        <div class="setting-control">
+                            <div class="range-container">
+                                <input type="range" id="creativity" class="setting-range" min="0.1" max="2.0" step="0.1" value="0.8">
+                                <span class="range-value" id="creativityValue">0.8</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label for="sessionTimeout">Session Timeout</label>
+                            <p class="setting-description">How long to keep AI sessions active (minutes)</p>
+                        </div>
+                        <div class="setting-control">
+                            <select id="sessionTimeout" class="setting-select">
+                                <option value="5">5 minutes</option>
+                                <option value="10" selected>10 minutes</option>
+                                <option value="15">15 minutes</option>
+                                <option value="30">30 minutes</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label for="maxTextLength">Max Text Length</label>
+                            <p class="setting-description">Maximum characters to process in one request</p>
+                        </div>
+                        <div class="setting-control">
+                            <select id="maxTextLength" class="setting-select">
+                                <option value="1000">1,000 characters</option>
+                                <option value="2500">2,500 characters</option>
+                                <option value="5000" selected>5,000 characters</option>
+                                <option value="10000">10,000 characters</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Interface Settings -->
+            <section class="settings-section">
+                <h2 class="section-title">
+                    <span class="section-icon">🎨</span>
+                    Interface
+                </h2>
+                
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label for="theme">Theme</label>
+                            <p class="setting-description">Choose your preferred color scheme</p>
+                        </div>
+                        <div class="setting-control">
+                            <select id="theme" class="setting-select">
+                                <option value="system">System Default</option>
+                                <option value="light">Light</option>
+                                <option value="dark">Dark</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label for="animationsEnabled">Enable animations</label>
+                            <p class="setting-description">Show smooth transitions and hover effects</p>
+                        </div>
+                        <div class="setting-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="animationsEnabled" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label for="compactMode">Compact mode</label>
+                            <p class="setting-description">Use smaller UI elements to save space</p>
+                        </div>
+                        <div class="setting-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="compactMode">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Privacy & Data -->
+            <section class="settings-section">
+                <h2 class="section-title">
+                    <span class="section-icon">🔒</span>
+                    Privacy & Data
+                </h2>
+                
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label for="enableTelemetry">Anonymous usage statistics</label>
+                            <p class="setting-description">Help improve the extension by sharing anonymous usage data</p>
+                        </div>
+                        <div class="setting-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="enableTelemetry">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label>Data Storage</label>
+                            <p class="setting-description">All processing happens locally. No data is sent to external servers.</p>
+                        </div>
+                        <div class="setting-control">
+                            <span class="privacy-badge">🛡️ Private</span>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label>AI Model</label>
+                            <p class="setting-description">Uses Chrome's built-in Gemini Nano model</p>
+                        </div>
+                        <div class="setting-control">
+                            <span class="privacy-badge">📱 On-Device</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Advanced Settings -->
+            <section class="settings-section">
+                <h2 class="section-title">
+                    <span class="section-icon">🔧</span>
+                    Advanced
+                </h2>
+                
+                <div class="setting-group">
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label for="debugMode">Debug mode</label>
+                            <p class="setting-description">Enable detailed console logging for troubleshooting</p>
+                        </div>
+                        <div class="setting-control">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="debugMode">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label>Reset Settings</label>
+                            <p class="setting-description">Reset all settings to their default values</p>
+                        </div>
+                        <div class="setting-control">
+                            <button class="reset-button" id="resetSettings">Reset All</button>
+                        </div>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-label">
+                            <label>Export/Import Settings</label>
+                            <p class="setting-description">Backup or restore your configuration</p>
+                        </div>
+                        <div class="setting-control">
+                            <div class="button-group">
+                                <button class="export-button" id="exportSettings">Export</button>
+                                <button class="import-button" id="importSettings">Import</button>
+                            </div>
+                            <input type="file" id="importFile" accept=".json" style="display: none;">
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="settings-footer">
+            <div class="footer-content">
+                <div class="version-info">
+                    <span id="versionNumber">v1.3.2</span>
+                </div>
+                <div class="footer-buttons">
+                    <button class="footer-button" id="helpButton" title="Help">
+                        <span class="button-icon">❓</span>
+                    </button>
+                    <button class="footer-button" id="saveButton" title="Save Settings">
+                        <span class="button-icon">💾</span>
+                        <span class="button-text">Save</span>
+                    </button>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Success/Error Messages -->
+    <div id="messageContainer" class="message-container"></div>
+
+    <script src="settings.js"></script>
+</body>
+</html>

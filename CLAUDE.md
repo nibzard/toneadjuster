@@ -29,7 +29,7 @@ This is currently a specification-only repository. The project will be a Chrome 
 
 ### Core Functionality
 - Text selection detection in editable fields
-- Tone options: Formal, Friendly, Confident, Concise, Empathetic
+- Tone options: Engaging, Friendly, Confident, Concise, Empathetic
 - Real-time text rewriting with user approval workflow
 - Error handling for API unavailability and processing failures
 

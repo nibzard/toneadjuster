@@ -30,7 +30,7 @@ Users will be able to activate "The Tone Adjuster" in two ways:
 Upon invoking the tool, a user-friendly interface will appear, offering a selection of predefined tones. The initial set of tones will include:
 
 *   **Polish:** (Default) For correcting grammar, fixing errors, and improving overall clarity and fluency.
-*   **Formal:** For professional correspondence, reports, and official documents.
+*   **Engaging:** For captivating social media posts, marketing content, and interactive communication.
 *   **Friendly:** To make communication more approachable and personable.
 *   **Confident:** For assertive and persuasive writing.
 *   **Concise:** To shorten the text while retaining the core message.
@@ -100,11 +100,11 @@ const session = await chrome.ai.createSession();
 
 When a user selects a tone, a carefully crafted prompt will be sent to the AI model via the `session.prompt()` method. The prompt will include the selected text and the desired tone.
 
-*   **Example Prompt:** `Rewrite the following text in a more formal tone: "[user's selected text]"`
+*   **Example Prompt:** `Rewrite the following text in a more engaging tone: "[user's selected text]"`
 *   **Reference:** [Execute a prompt](https://developer.chrome.com/docs/extensions/ai/prompt-api#execute-a-prompt)
 
 ```javascript
-const tone = "formal"; // Example tone
+const tone = "engaging"; // Example tone
 const selectedText = "I need this done asap."; // Example user text
 const prompt = `Rewrite the following text in a ${tone} tone: "${selectedText}"`;
 

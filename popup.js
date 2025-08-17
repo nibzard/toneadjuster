@@ -270,7 +270,7 @@ class PopupManager {
      */
     showToneInfo(tone) {
         const toneDescriptions = {
-            formal: 'Perfect for business emails, reports, and professional communication.',
+            engaging: 'Perfect for social media posts, marketing content, and captivating communication.',
             friendly: 'Great for casual emails, social media, and personal messages.',
             confident: 'Ideal for presentations, proposals, and assertive communication.',
             concise: 'Best for quick messages, summaries, and clear instructions.',
@@ -309,8 +309,10 @@ class PopupManager {
      * Handle settings button click
      */
     handleSettingsClick() {
-        // For now, just show a message
-        this.showTemporaryMessage('Settings panel coming soon!');
+        // Open settings page in a new tab
+        chrome.tabs.create({
+            url: chrome.runtime.getURL('settings.html')
+        });
     }
 
     /**

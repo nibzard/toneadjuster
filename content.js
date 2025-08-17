@@ -3,8 +3,6 @@
  * Handles text selection detection, UI injection, and tone adjustment workflow
  */
 
-import DOMPurify from 'dompurify';
-
 class ToneAdjuster {
     constructor() {
         this.currentSelection = null;
@@ -13,11 +11,16 @@ class ToneAdjuster {
         this.selectionRange = null;
         this.tooltip = null;
         this.isProcessing = false;
+        this.tooltipInteracting = false;
+        this.settings = null;
+        
+        // Store bound handler for removal/re-adding
+        this.boundHandleClickOutside = this.handleClickOutside.bind(this);
         
         // Tone options
         this.tones = [
             { id: 'polish', label: 'Polish', icon: '💎' },
-            { id: 'formal', label: 'Formal', icon: '📋' },
+            { id: 'engaging', label: 'Engaging', icon: '📋' },
             { id: 'friendly', label: 'Friendly', icon: '😊' },
             { id: 'confident', label: 'Confident', icon: '💪' },
             { id: 'concise', label: 'Concise', icon: '⚡' },
@@ -27,11 +30,59 @@ class ToneAdjuster {
         this.init();
     }
     
-    init() {
+    async init() {
         console.log('🚀 Tone Adjuster content script initializing...');
+        
+        // Load settings from background script
+        await this.loadSettings();
+        
         this.attachEventListeners();
         this.injectStyles();
         console.log('✅ Tone Adjuster content script initialized successfully');
+    }
+    
+    async loadSettings() {
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'getSettings' });
+            if (response && response.success) {
+                this.settings = response.settings;
+                console.log('Settings loaded in content script:', this.settings);
+            } else {
+                // Use default settings if unable to load
+                this.settings = {
+                    defaultTone: 'polish',
+                    autoAccept: false,
+                    showTooltip: true,
+                    enableContextMenu: true,
+                    creativity: 0.8,
+                    sessionTimeout: 10,
+                    maxTextLength: 5000,
+                    theme: 'system',
+                    animationsEnabled: true,
+                    compactMode: false,
+                    enableTelemetry: false,
+                    debugMode: false
+                };
+                console.log('Using default settings in content script');
+            }
+        } catch (error) {
+            console.error('Failed to load settings in content script:', error);
+            // Use default settings as fallback
+            this.settings = {
+                defaultTone: 'polish',
+                autoAccept: false,
+                showTooltip: true,
+                enableContextMenu: true,
+                creativity: 0.8,
+                sessionTimeout: 10,
+                maxTextLength: 5000,
+                theme: 'system',
+                animationsEnabled: true,
+                compactMode: false,
+                enableTelemetry: false,
+                debugMode: false
+            };
+        }
     }
     
     attachEventListeners() {
@@ -39,9 +90,12 @@ class ToneAdjuster {
         document.addEventListener('mouseup', this.handleSelection.bind(this));
         document.addEventListener('keyup', this.handleSelection.bind(this));
         
+        // Track selection changes for context menu support
+        document.addEventListener('selectionchange', this.trackSelection.bind(this));
+        
         // Hide tooltip on scroll or click outside
         document.addEventListener('scroll', this.hideTooltip.bind(this), true);
-        document.addEventListener('mousedown', this.handleClickOutside.bind(this));
+        document.addEventListener('mousedown', this.boundHandleClickOutside);
         
         // Handle window resize
         window.addEventListener('resize', this.hideTooltip.bind(this));
@@ -57,6 +111,47 @@ class ToneAdjuster {
         document.head.appendChild(link);
     }
     
+    trackSelection() {
+        // Don't overwrite selection context if tooltip is open or processing
+        if (this.tooltip || this.isProcessing) {
+            return;
+        }
+        
+        // Track selection for context menu support (no tooltip)
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+            return;
+        }
+        
+        const range = selection.getRangeAt(0);
+        const selectedText = selection.toString().trim();
+        
+        if (selectedText && selectedText.length >= 3) {
+            const targetElement = this.getEditableElement(range.commonAncestorContainer);
+            if (targetElement) {
+                // Store selection context for potential context menu use
+                // Include more context for robust text replacement
+                this.lastSelection = {
+                    text: selectedText,
+                    element: targetElement,
+                    range: range.cloneRange(),
+                    startOffset: range.startOffset,
+                    endOffset: range.endOffset,
+                    timestamp: Date.now()
+                };
+                
+                // For input/textarea, also store selection positions
+                if (targetElement.tagName && 
+                    ['INPUT', 'TEXTAREA'].includes(targetElement.tagName.toLowerCase())) {
+                    this.lastSelection.selectionStart = targetElement.selectionStart;
+                    this.lastSelection.selectionEnd = targetElement.selectionEnd;
+                }
+                
+                console.log('Tracked selection:', this.lastSelection.text.substring(0, 50));
+            }
+        }
+    }
+    
     handleSelection(event) {
         // Debounce selection handling
         clearTimeout(this.selectionTimeout);
@@ -66,10 +161,13 @@ class ToneAdjuster {
     }
     
     processSelection(event) {
-        const selection = window.getSelection();
+        // Don't process selection if tooltip is already open or we're processing
+        if (this.tooltip || this.isProcessing || this.tooltipInteracting) {
+            console.log('Skipping processSelection - tooltip active or processing');
+            return;
+        }
         
-        // Hide existing tooltip
-        this.hideTooltip();
+        const selection = window.getSelection();
         
         // Check if there's a valid selection
         if (!selection || selection.rangeCount === 0) {
@@ -89,6 +187,14 @@ class ToneAdjuster {
         if (!targetElement) {
             return;
         }
+        
+        // Check if tooltip is enabled in settings
+        if (this.settings && this.settings.showTooltip === false) {
+            console.log('Tooltip disabled by user settings');
+            return;
+        }
+        
+        console.log('Creating new tooltip for selection:', selectedText.substring(0, 50));
         
         // Store selection details
         this.currentSelection = selection;
@@ -131,6 +237,10 @@ class ToneAdjuster {
     }
     
     showTooltip(range) {
+        // Remove document click listener to prevent interference
+        document.removeEventListener('mousedown', this.boundHandleClickOutside);
+        console.log('Document mousedown listener removed for tooltip interaction');
+        
         // Create tooltip element
         this.tooltip = document.createElement('div');
         this.tooltip.className = 'tone-adjuster-tooltip';
@@ -144,6 +254,9 @@ class ToneAdjuster {
         
         // Attach event listeners
         this.attachTooltipListeners();
+        
+        // Set interaction flag
+        this.tooltipInteracting = true;
         
         // Animate in
         requestAnimationFrame(() => {
@@ -288,7 +401,10 @@ class ToneAdjuster {
         // Close button
         const closeBtn = this.tooltip.querySelector('.close-btn');
         if (closeBtn) {
-            closeBtn.addEventListener('click', this.hideTooltip.bind(this));
+            closeBtn.addEventListener('click', (e) => {
+                console.log('Close button clicked');
+                this.hideTooltip();
+            });
         }
         
         // Tone adjustment buttons
@@ -296,21 +412,28 @@ class ToneAdjuster {
         toneButtons.forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const tone = e.currentTarget.dataset.tone;
+                console.log(`Tone button clicked: ${tone}`);
                 this.adjustTone(tone);
             });
         });
         
-        // Preview action buttons
+        // Preview action buttons  
         const acceptBtn = this.tooltip.querySelector('.accept-btn');
         const rejectBtn = this.tooltip.querySelector('.reject-btn');
         
         if (acceptBtn) {
-            acceptBtn.addEventListener('click', this.acceptAdjustment.bind(this));
+            acceptBtn.addEventListener('click', (e) => {
+                this.acceptAdjustment();
+            });
         }
         
         if (rejectBtn) {
-            rejectBtn.addEventListener('click', this.showToneButtons.bind(this));
+            rejectBtn.addEventListener('click', (e) => {
+                this.showToneButtons();
+            });
         }
+        
+        console.log('Tooltip event listeners attached');
     }
     
     async adjustTone(tone) {
@@ -329,6 +452,8 @@ class ToneAdjuster {
                 throw new Error('Invalid tone specified');
             }
             
+            console.log(`Starting tone adjustment: ${tone} for "${this.selectedText.substring(0, 50)}..."`);
+            
             // Send message to background script for AI processing
             const response = await chrome.runtime.sendMessage({
                 action: 'rewriteText',
@@ -344,6 +469,7 @@ class ToneAdjuster {
                 if (!response.adjustedText) {
                     throw new Error('No adjusted text received');
                 }
+                console.log(`Tone adjustment completed: "${response.adjustedText.substring(0, 50)}..."`);
                 this.showPreview(response.adjustedText, tone);
             } else {
                 this.showError(response.error || 'Failed to adjust tone');
@@ -382,6 +508,17 @@ class ToneAdjuster {
     showPreview(adjustedText, tone) {
         if (!this.tooltip) return;
         
+        // Store adjusted text for potential acceptance
+        this.adjustedText = adjustedText;
+        this.adjustedTone = tone;
+        
+        // Check if auto-accept is enabled
+        if (this.settings && this.settings.autoAccept) {
+            console.log('Auto-accepting adjustment due to user settings');
+            this.acceptAdjustment();
+            return;
+        }
+        
         const processingState = this.tooltip.querySelector('.processing-state');
         const previewSection = this.tooltip.querySelector('.preview-section');
         const previewContent = this.tooltip.querySelector('.preview-content');
@@ -390,13 +527,8 @@ class ToneAdjuster {
             processingState.style.display = 'none';
             previewSection.style.display = 'block';
             
-            // Sanitize the adjusted text before displaying (though textContent should be safe)
-            const sanitizedText = DOMPurify.sanitize(adjustedText, { ALLOWED_TAGS: [] });
-            previewContent.textContent = sanitizedText;
-            
-            // Store adjusted text for potential acceptance
-            this.adjustedText = adjustedText;
-            this.adjustedTone = tone;
+            // Set the adjusted text (textContent is already safe from XSS)
+            previewContent.textContent = adjustedText;
         }
     }
     
@@ -493,22 +625,241 @@ class ToneAdjuster {
             // Trigger input event for any listeners
             this.targetElement.dispatchEvent(new Event('input', { bubbles: true }));
         } else {
-            // For contenteditable elements
-            this.selectionRange.deleteContents();
-            this.selectionRange.insertNode(document.createTextNode(newText));
-            
-            // Clear selection and position cursor
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(this.selectionRange);
-            selection.collapseToEnd();
+            // For contenteditable elements, including complex ones like Twitter/Draft.js
+            if (this.isTwitterEditor(this.targetElement)) {
+                this.replaceInTwitterEditor(newText);
+            } else {
+                // Standard contenteditable replacement
+                this.selectionRange.deleteContents();
+                this.selectionRange.insertNode(document.createTextNode(newText));
+                
+                // Clear selection and position cursor
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(this.selectionRange);
+                selection.collapseToEnd();
+            }
         }
         
         // Focus the element
         this.targetElement.focus();
     }
     
+    isTwitterEditor(element) {
+        // Check for Twitter's Draft.js editor indicators
+        return element.hasAttribute('data-testid') && 
+               element.getAttribute('data-testid').includes('tweetTextarea') ||
+               element.classList.contains('public-DraftEditor-content') ||
+               element.closest('[data-testid*="tweetTextarea"]') ||
+               element.closest('.public-DraftEditor-content');
+    }
+    
+    replaceInTwitterEditor(newText) {
+        try {
+            // For Twitter's Draft.js editor, we need to simulate user input more accurately
+            // Find the text span with data-text="true"
+            const textSpan = this.targetElement.querySelector('[data-text="true"]') ||
+                           this.selectionRange.commonAncestorContainer.closest('[data-text="true"]') ||
+                           this.selectionRange.startContainer.parentElement?.closest('[data-text="true"]');
+            
+            if (textSpan) {
+                // Method 1: Use execCommand for better Draft.js compatibility
+                const oldText = textSpan.textContent;
+                const startIndex = oldText.indexOf(this.selectedText);
+                
+                if (startIndex !== -1) {
+                    // Create a proper selection range for the text to replace
+                    const selection = window.getSelection();
+                    const range = document.createRange();
+                    
+                    // Find the exact text node and position
+                    const textNode = textSpan.firstChild || textSpan;
+                    if (textNode.nodeType === Node.TEXT_NODE) {
+                        range.setStart(textNode, startIndex);
+                        range.setEnd(textNode, startIndex + this.selectedText.length);
+                        
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                        
+                        // Use execCommand which Draft.js handles better
+                        document.execCommand('insertText', false, newText);
+                        
+                        console.log('Twitter editor execCommand replacement completed');
+                        return true;
+                    }
+                }
+            }
+            
+            // Method 2: Simulate keystrokes for better Draft.js integration
+            if (this.selectionRange && this.targetElement) {
+                // Focus the editor first
+                this.targetElement.focus();
+                
+                // Create and select the range
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(this.selectionRange);
+                
+                // Try to trigger beforeinput event (Draft.js listens for this)
+                const beforeInputEvent = new InputEvent('beforeinput', {
+                    bubbles: true,
+                    cancelable: true,
+                    inputType: 'insertReplacementText',
+                    data: newText
+                });
+                
+                const eventHandled = this.targetElement.dispatchEvent(beforeInputEvent);
+                
+                if (!eventHandled || beforeInputEvent.defaultPrevented) {
+                    // If beforeinput was handled/prevented, Draft.js might have processed it
+                    console.log('Twitter editor beforeinput event was handled by Draft.js');
+                    return true;
+                } else {
+                    // Fall back to execCommand
+                    document.execCommand('insertText', false, newText);
+                    console.log('Twitter editor execCommand fallback completed');
+                    return true;
+                }
+            }
+            
+            // Method 3: Direct content manipulation with proper events
+            if (textSpan) {
+                const oldText = textSpan.textContent;
+                const startIndex = oldText.indexOf(this.selectedText);
+                
+                if (startIndex !== -1) {
+                    const beforeText = oldText.substring(0, startIndex);
+                    const afterText = oldText.substring(startIndex + this.selectedText.length);
+                    const newFullText = beforeText + newText + afterText;
+                    
+                    // Update the text content
+                    textSpan.textContent = newFullText;
+                    
+                    // Dispatch input event specifically for Draft.js
+                    const inputEvent = new InputEvent('input', {
+                        bubbles: true,
+                        cancelable: true,
+                        inputType: 'insertReplacementText',
+                        data: newText
+                    });
+                    
+                    this.targetElement.dispatchEvent(inputEvent);
+                    
+                    // Also try composition events which Draft.js uses
+                    this.targetElement.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
+                    this.targetElement.dispatchEvent(new CompositionEvent('compositionend', { 
+                        bubbles: true, 
+                        data: newText 
+                    }));
+                    
+                    // Set cursor position after the replaced text
+                    const selection = window.getSelection();
+                    const range = document.createRange();
+                    const newPosition = beforeText.length + newText.length;
+                    
+                    if (textSpan.firstChild) {
+                        range.setStart(textSpan.firstChild, Math.min(newPosition, textSpan.textContent.length));
+                        range.setEnd(textSpan.firstChild, Math.min(newPosition, textSpan.textContent.length));
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    }
+                    
+                    console.log('Twitter editor direct manipulation completed');
+                    return true;
+                }
+            }
+            
+        } catch (error) {
+            console.error('Twitter editor replacement failed:', error);
+            
+            // Final fallback: Try mutation and re-trigger React reconciliation
+            try {
+                const currentText = this.targetElement.textContent || this.targetElement.innerText;
+                if (currentText && currentText.includes(this.selectedText)) {
+                    // Find the Draft.js editor container to trigger React updates
+                    const draftContainer = this.targetElement.closest('[data-testid*="tweetTextarea"]') || 
+                                         this.targetElement.closest('.public-DraftEditor-content');
+                    
+                    if (draftContainer) {
+                        // Temporarily store the current content
+                        const currentContent = this.targetElement.innerHTML;
+                        const newContent = currentContent.replace(this.selectedText, newText);
+                        
+                        this.targetElement.innerHTML = newContent;
+                        
+                        // Force React to notice the change by dispatching multiple events
+                        const events = [
+                            new Event('input', { bubbles: true }),
+                            new Event('change', { bubbles: true }),
+                            new InputEvent('beforeinput', { bubbles: true, inputType: 'insertText', data: newText }),
+                            new KeyboardEvent('keydown', { bubbles: true, key: 'a' }),
+                            new KeyboardEvent('keyup', { bubbles: true, key: 'a' })
+                        ];
+                        
+                        events.forEach(event => {
+                            this.targetElement.dispatchEvent(event);
+                        });
+                        
+                        // Focus and click to trigger React
+                        this.targetElement.focus();
+                        this.targetElement.click();
+                        
+                        console.log('Twitter editor final fallback completed');
+                        return true;
+                    }
+                }
+            } catch (fallbackError) {
+                console.error('Twitter editor final fallback failed:', fallbackError);
+            }
+        }
+        
+        return false;
+    }
+    
     showSuccessFeedback() {
+        if (this.targetElement) {
+            this.showSuccessFeedbackForElement(this.targetElement);
+        } else {
+            // Fallback: show feedback in center of screen
+            this.showSuccessFeedbackAtPosition(window.innerWidth / 2, 100);
+        }
+    }
+    
+    showSuccessFeedbackForElement(element) {
+        if (!element || !document.contains(element)) {
+            this.showSuccessFeedbackAtPosition(window.innerWidth / 2, 100);
+            return;
+        }
+        
+        const feedback = this.createSuccessFeedback();
+        document.body.appendChild(feedback);
+        
+        try {
+            // Position near the target element
+            const rect = element.getBoundingClientRect();
+            feedback.style.left = `${rect.left + window.scrollX}px`;
+            feedback.style.top = `${rect.bottom + window.scrollY + 5}px`;
+        } catch (error) {
+            console.warn('Could not position feedback near element:', error);
+            // Fallback positioning
+            feedback.style.left = '50px';
+            feedback.style.top = '100px';
+        }
+        
+        this.animateSuccessFeedback(feedback);
+    }
+    
+    showSuccessFeedbackAtPosition(x, y) {
+        const feedback = this.createSuccessFeedback();
+        document.body.appendChild(feedback);
+        
+        feedback.style.left = `${x - 100}px`; // Center the feedback
+        feedback.style.top = `${y}px`;
+        
+        this.animateSuccessFeedback(feedback);
+    }
+    
+    createSuccessFeedback() {
         const feedback = document.createElement('div');
         feedback.className = 'tone-adjuster-success';
         
@@ -523,13 +874,10 @@ class ToneAdjuster {
         feedback.appendChild(successIcon);
         feedback.appendChild(successText);
         
-        document.body.appendChild(feedback);
-        
-        // Position near the target element
-        const rect = this.targetElement.getBoundingClientRect();
-        feedback.style.left = `${rect.left + window.scrollX}px`;
-        feedback.style.top = `${rect.bottom + window.scrollY + 5}px`;
-        
+        return feedback;
+    }
+    
+    animateSuccessFeedback(feedback) {
         // Animate in and out
         requestAnimationFrame(() => {
             feedback.classList.add('visible');
@@ -545,19 +893,235 @@ class ToneAdjuster {
         }, 2000);
     }
     
-    handleClickOutside(event) {
-        if (this.tooltip && !this.tooltip.contains(event.target)) {
-            // Don't hide if clicking on the selected text
-            const selection = window.getSelection();
-            if (selection && selection.rangeCount > 0) {
-                const range = selection.getRangeAt(0);
-                if (range.toString().trim() === this.selectedText) {
-                    return;
+    showContextMenuSuccessFeedback(element, tone) {
+        const feedback = document.createElement('div');
+        feedback.className = 'tone-adjuster-success context-menu-success';
+        
+        const successIcon = document.createElement('span');
+        successIcon.className = 'success-icon';
+        successIcon.textContent = '✓';
+        
+        const successText = document.createElement('span');
+        successText.className = 'success-text';
+        successText.textContent = `Text adjusted to ${tone} tone!`;
+        
+        feedback.appendChild(successIcon);
+        feedback.appendChild(successText);
+        
+        document.body.appendChild(feedback);
+        
+        // Position based on element or use center of screen
+        if (element && document.contains(element)) {
+            try {
+                const rect = element.getBoundingClientRect();
+                feedback.style.left = `${rect.left + window.scrollX}px`;
+                feedback.style.top = `${rect.bottom + window.scrollY + 5}px`;
+            } catch (error) {
+                // Fallback to center
+                feedback.style.left = '50%';
+                feedback.style.top = '100px';
+                feedback.style.transform = 'translateX(-50%)';
+            }
+        } else {
+            // Center on screen
+            feedback.style.left = '50%';
+            feedback.style.top = '100px';
+            feedback.style.transform = 'translateX(-50%)';
+        }
+        
+        // Animate with slightly longer duration for context menu feedback
+        requestAnimationFrame(() => {
+            feedback.classList.add('visible');
+        });
+        
+        setTimeout(() => {
+            feedback.classList.remove('visible');
+            setTimeout(() => {
+                if (feedback.parentNode) {
+                    feedback.parentNode.removeChild(feedback);
+                }
+            }, 300);
+        }, 3000); // Show for 3 seconds instead of 2
+    }
+    
+    replaceTextInElement(element, originalText, newText, selectionInfo) {
+        const tagName = element.tagName.toLowerCase();
+        
+        if (tagName === 'input' || tagName === 'textarea') {
+            // For input/textarea elements, use stored selection positions if available
+            if (selectionInfo && 
+                typeof selectionInfo.selectionStart === 'number' && 
+                typeof selectionInfo.selectionEnd === 'number') {
+                
+                const value = element.value;
+                const selectedText = value.substring(selectionInfo.selectionStart, selectionInfo.selectionEnd);
+                
+                if (selectedText.trim() === originalText.trim()) {
+                    element.value = 
+                        value.substring(0, selectionInfo.selectionStart) + 
+                        newText + 
+                        value.substring(selectionInfo.selectionEnd);
+                    
+                    // Set cursor position after replaced text
+                    const newCursorPos = selectionInfo.selectionStart + newText.length;
+                    element.setSelectionRange(newCursorPos, newCursorPos);
+                    
+                    // Trigger input event
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                    element.focus();
+                    return true;
                 }
             }
             
-            this.hideTooltip();
+            // Fallback: search and replace in the value
+            const value = element.value;
+            if (value.includes(originalText)) {
+                element.value = value.replace(originalText, newText);
+                element.dispatchEvent(new Event('input', { bubbles: true }));
+                element.focus();
+                return true;
+            }
+        } else if (element.contentEditable === 'true') {
+            // Check if this is a Twitter editor
+            if (this.isTwitterEditor(element)) {
+                return this.replaceInTwitterEditorByText(element, originalText, newText);
+            } else {
+                // For standard contenteditable elements
+                const textContent = element.textContent || element.innerText || '';
+                if (textContent.includes(originalText)) {
+                    element.innerHTML = element.innerHTML.replace(originalText, newText);
+                    element.focus();
+                    return true;
+                }
+            }
         }
+        
+        return false;
+    }
+    
+    replaceInTwitterEditorByText(element, originalText, newText) {
+        try {
+            // Find the text span with data-text="true" within this element
+            const textSpan = element.querySelector('[data-text="true"]');
+            
+            if (textSpan && textSpan.textContent.includes(originalText)) {
+                const oldText = textSpan.textContent;
+                const newFullText = oldText.replace(originalText, newText);
+                
+                // Update the text content
+                textSpan.textContent = newFullText;
+                
+                // Trigger events to notify Draft.js
+                const events = ['input', 'textInput', 'beforeinput', 'compositionend', 'change'];
+                events.forEach(eventType => {
+                    const event = new Event(eventType, { bubbles: true, cancelable: true });
+                    if (eventType === 'textInput' || eventType === 'beforeinput') {
+                        event.data = newText;
+                    }
+                    element.dispatchEvent(event);
+                });
+                
+                // Also trigger on the text span
+                events.forEach(eventType => {
+                    const event = new Event(eventType, { bubbles: true, cancelable: true });
+                    textSpan.dispatchEvent(event);
+                });
+                
+                element.focus();
+                console.log('Twitter editor text replacement by text completed');
+                return true;
+            }
+            
+            // Fallback: try innerHTML replacement
+            if (element.innerHTML.includes(originalText)) {
+                element.innerHTML = element.innerHTML.replace(originalText, newText);
+                element.dispatchEvent(new Event('input', { bubbles: true }));
+                element.focus();
+                console.log('Twitter editor innerHTML replacement completed');
+                return true;
+            }
+            
+        } catch (error) {
+            console.error('Twitter editor text replacement failed:', error);
+        }
+        
+        return false;
+    }
+    
+    findAndReplaceText(originalText, newText) {
+        // Search all editable elements for the original text
+        const editableElements = document.querySelectorAll(
+            'input[type="text"], input[type="email"], input[type="password"], ' +
+            'input[type="search"], input[type="url"], textarea, [contenteditable="true"]'
+        );
+        
+        for (const element of editableElements) {
+            const tagName = element.tagName.toLowerCase();
+            
+            if (tagName === 'input' || tagName === 'textarea') {
+                if (element.value && element.value.includes(originalText)) {
+                    element.value = element.value.replace(originalText, newText);
+                    element.dispatchEvent(new Event('input', { bubbles: true }));
+                    element.focus();
+                    this.showSuccessFeedbackForElement(element);
+                    return true;
+                }
+            } else if (element.contentEditable === 'true') {
+                const textContent = element.textContent || element.innerText || '';
+                if (textContent.includes(originalText)) {
+                    // Check if this is a Twitter editor
+                    if (this.isTwitterEditor(element)) {
+                        const success = this.replaceInTwitterEditorByText(element, originalText, newText);
+                        if (success) {
+                            this.showSuccessFeedbackForElement(element);
+                            return true;
+                        }
+                    } else {
+                        // Standard contenteditable replacement
+                        element.innerHTML = element.innerHTML.replace(originalText, newText);
+                        element.focus();
+                        this.showSuccessFeedbackForElement(element);
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    handleClickOutside(event) {
+        if (!this.tooltip) return;
+        
+        // Check if click is within tooltip using multiple methods for safety
+        const isWithinTooltip = this.tooltip.contains(event.target) || 
+                               event.target.closest('.tone-adjuster-tooltip') ||
+                               (event.composedPath && event.composedPath().includes(this.tooltip));
+        
+        if (isWithinTooltip) {
+            // Click is within tooltip, don't hide
+            console.log('Click within tooltip, keeping it open');
+            return;
+        }
+        
+        // Don't hide if currently processing
+        if (this.isProcessing) {
+            console.log('Processing in progress, keeping tooltip open');
+            return;
+        }
+        
+        // Don't hide if clicking on the selected text
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+            const range = selection.getRangeAt(0);
+            if (range.toString().trim() === this.selectedText) {
+                console.log('Clicked on selected text, keeping tooltip open');
+                return;
+            }
+        }
+        
+        console.log('Clicking outside tooltip, hiding it');
+        this.hideTooltip();
     }
     
     hideTooltip() {
@@ -569,6 +1133,10 @@ class ToneAdjuster {
                     this.tooltip.parentNode.removeChild(this.tooltip);
                 }
                 this.tooltip = null;
+                
+                // Re-add document listener after tooltip is completely removed
+                document.addEventListener('mousedown', this.boundHandleClickOutside);
+                console.log('Document mousedown listener re-added after tooltip removal');
             }, 200);
         }
         
@@ -580,6 +1148,25 @@ class ToneAdjuster {
         this.adjustedText = null;
         this.adjustedTone = null;
         this.isProcessing = false;
+        this.tooltipInteracting = false;
+    }
+    
+    /**
+     * Handle settings changes
+     */
+    onSettingsChanged(newSettings) {
+        console.log('Content script settings updated:', newSettings);
+        
+        // Apply any necessary changes based on new settings
+        if (newSettings.debugMode) {
+            console.log('Debug mode enabled in content script');
+        }
+        
+        // If tooltip was disabled and we have an active tooltip, hide it
+        if (newSettings.showTooltip === false && this.tooltip) {
+            console.log('Hiding tooltip due to settings change');
+            this.hideTooltip();
+        }
     }
 }
 
@@ -587,49 +1174,128 @@ class ToneAdjuster {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('🔄 Content script received message:', message.action, message);
     
-    if (message.action === 'checkAiAvailability') {
-        checkAiAvailability().then(available => {
-            sendResponse({ available });
-        }).catch(error => {
-            console.error('Content script AI check failed:', error);
-            sendResponse({ available: false });
-        });
-        return true; // Keep message channel open for async response
-    } else if (message.action === 'rewriteTextWithAI') {
-        console.log('🎭 Processing rewriteTextWithAI request...');
-        (async () => {
+    let hasResponded = false;
+    
+    // Helper function to ensure response is sent only once
+    const safeResponse = (response) => {
+        if (!hasResponded && sendResponse) {
+            hasResponded = true;
             try {
-                const result = await rewriteTextWithAI(message.text, message.tone);
-                console.log('✅ Text rewriting successful:', result.substring(0, 100) + '...');
-                sendResponse({ success: true, adjustedText: result });
+                sendResponse(response);
             } catch (error) {
-                console.error('❌ Content script text rewriting failed:', error);
-                sendResponse({ success: false, error: error.message });
+                console.error('Error sending response:', error);
             }
-        })();
-        return true; // Keep message channel open for async response
-    } else if (message.action === 'replaceText') {
-        // Handle text replacement in the current page
-        console.log('Received replaceText request:', message);
-        try {
-            // For now, just log this - in a full implementation we'd replace text in the DOM
-            console.log(`Replace "${message.originalText}" with "${message.newText}" (${message.tone} tone)`);
-            sendResponse({ success: true });
-        } catch (error) {
-            console.error('Text replacement failed:', error);
-            sendResponse({ success: false, error: error.message });
         }
-        return false; // Synchronous response
-    } else if (message.action === 'error') {
-        // Handle error messages from background script
-        console.error('Background script error:', message.message);
-        // Could show user notification here
-        return false; // No response needed
-    } else {
-        // Handle unknown actions
-        console.warn('Unknown action received:', message.action);
-        sendResponse({ success: false, error: 'Unknown action: ' + message.action });
-        return false; // Don't keep channel open for unknown actions
+    };
+    
+    try {
+        if (message.action === 'checkAiAvailability') {
+            checkAiAvailability().then(available => {
+                safeResponse({ available });
+            }).catch(error => {
+                console.error('Content script AI check failed:', error);
+                safeResponse({ available: false });
+            });
+            return true; // Keep message channel open for async response
+        } else if (message.action === 'rewriteTextWithAI') {
+            console.log('🎭 Processing rewriteTextWithAI request...');
+            (async () => {
+                try {
+                    const result = await rewriteTextWithAI(message.text, message.tone);
+                    console.log('✅ Text rewriting successful:', result.substring(0, 100) + '...');
+                    safeResponse({ success: true, adjustedText: result });
+                } catch (error) {
+                    console.error('❌ Content script text rewriting failed:', error);
+                    safeResponse({ success: false, error: error.message });
+                }
+            })();
+            return true; // Keep message channel open for async response
+        } else if (message.action === 'replaceText') {
+            // Handle text replacement in the current page
+            console.log('Received replaceText request:', message);
+            try {
+                if (toneAdjusterInstance) {
+                    // Try to use current selection context first (tooltip workflow)
+                    if (toneAdjusterInstance.targetElement && toneAdjusterInstance.selectionRange) {
+                        // Use tooltip selection context
+                        toneAdjusterInstance.adjustedText = message.newText;
+                        toneAdjusterInstance.replaceSelectedText(message.newText);
+                        toneAdjusterInstance.showSuccessFeedback();
+                    } else if (toneAdjusterInstance.lastSelection && 
+                               (Date.now() - toneAdjusterInstance.lastSelection.timestamp) < 10000) {
+                        // Use tracked selection from context menu (within 10 seconds)
+                        console.log('Using tracked selection for text replacement');
+                        const lastSel = toneAdjusterInstance.lastSelection;
+                        
+                        // Validate the element still exists and is in the DOM
+                        if (lastSel.element && document.contains(lastSel.element)) {
+                            const success = toneAdjusterInstance.replaceTextInElement(
+                                lastSel.element, 
+                                message.originalText, 
+                                message.newText, 
+                                lastSel
+                            );
+                            
+                            if (success) {
+                                // Show enhanced success feedback for context menu usage
+                                toneAdjusterInstance.showContextMenuSuccessFeedback(lastSel.element, message.tone);
+                            } else {
+                                console.warn('Text replacement failed, trying fallback search');
+                                const found = toneAdjusterInstance.findAndReplaceText(message.originalText, message.newText);
+                                if (found) {
+                                    toneAdjusterInstance.showContextMenuSuccessFeedback(null, message.tone);
+                                }
+                            }
+                        } else {
+                            console.warn('Tracked element no longer valid');
+                        }
+                        
+                        // Clear the used selection
+                        toneAdjusterInstance.lastSelection = null;
+                    } else {
+                        // Fallback: search for the original text in all editable elements
+                        console.log('Searching for text to replace:', message.originalText.substring(0, 50));
+                        const found = toneAdjusterInstance.findAndReplaceText(message.originalText, message.newText);
+                        if (found) {
+                            toneAdjusterInstance.showContextMenuSuccessFeedback(null, message.tone);
+                        } else {
+                            console.warn('Could not find text to replace');
+                        }
+                    }
+                } else {
+                    console.error('ToneAdjuster instance not available');
+                }
+                safeResponse({ success: true });
+            } catch (error) {
+                console.error('Text replacement failed:', error);
+                safeResponse({ success: false, error: error.message });
+            }
+            return false; // Synchronous response
+        } else if (message.action === 'settingsChanged') {
+            // Handle settings change notification
+            console.log('Settings changed in content script:', message.settings);
+            if (toneAdjusterInstance && message.settings) {
+                toneAdjusterInstance.settings = message.settings;
+                toneAdjusterInstance.onSettingsChanged(message.settings);
+            }
+            safeResponse({ success: true });
+            return false; // Response sent
+        } else if (message.action === 'error') {
+            // Handle error messages from background script
+            console.error('Background script error:', message.message);
+            // Send acknowledgment even for error messages
+            safeResponse({ received: true });
+            return false; // Response sent
+        } else {
+            // Handle unknown actions
+            console.warn('Unknown action received:', message.action);
+            safeResponse({ success: false, error: 'Unknown action: ' + message.action });
+            return false; // Response sent
+        }
+    } catch (error) {
+        console.error('Message handler error:', error);
+        safeResponse({ success: false, error: 'Message handler error: ' + error.message });
+        return false; // Response sent
     }
 });
 
@@ -655,7 +1321,12 @@ async function checkAiAvailability() {
 // AI text rewriting function for content script
 let aiSessions = {}; // Store different sessions by tone type
 let sessionTimeouts = {};
-const sessionIdleTime = 5 * 60 * 1000; // 5 minutes
+
+function getSessionIdleTime() {
+    // Get timeout from settings or use default
+    const timeoutMinutes = (toneAdjusterInstance?.settings?.sessionTimeout) || 10;
+    return timeoutMinutes * 60 * 1000; // Convert to milliseconds
+}
 
 async function rewriteTextWithAI(text, tone) {
     try {
@@ -664,6 +1335,8 @@ async function rewriteTextWithAI(text, tone) {
         }
 
         const session = await ensureAISession(tone);
+        
+        // Create simple prompt - the AI session already has the examples and instructions
         const prompt = createPrompt(text, tone);
         
         console.log(`Rewriting text with ${tone} tone:`, text.substring(0, 50) + '...');
@@ -675,7 +1348,7 @@ async function rewriteTextWithAI(text, tone) {
         }
 
         // Clean up response - remove common artifacts
-        const cleanedResponse = cleanResponse(response, text);
+        const cleanedResponse = cleanResponse(response);
         
         return cleanedResponse;
     } catch (error) {
@@ -693,7 +1366,7 @@ async function rewriteTextWithAI(text, tone) {
             
             if (response && response.trim().length > 0) {
                 console.log('Retry succeeded after session reset');
-                return cleanResponse(response, text);
+                return cleanResponse(response);
             }
         } catch (retryError) {
             console.error('Retry also failed:', retryError);
@@ -703,29 +1376,149 @@ async function rewriteTextWithAI(text, tone) {
     }
 }
 
+function getInitialPromptsForTone(tone) {
+    const prompts = {
+        polish: {
+            system: `You are an expert text rewriter that polishes text by correcting grammar, spelling, and improving clarity.
+Follow these rules:
+1. Fix grammatical errors, spelling mistakes, and improve sentence structure.
+2. Maintain the original meaning and tone while making it more polished.
+3. Always output only the rewritten sentence. Never explain your reasoning.`,
+            examples: [
+                { role: 'user', content: "Rewrite in a polished tone: 'Their going to the store tommorrow.'" },
+                { role: 'assistant', content: "They're going to the store tomorrow." },
+                { role: 'user', content: "Rewrite in a polished tone: 'I seen the report you sended me.'" },
+                { role: 'assistant', content: "I've reviewed the report you sent me." },
+                { role: 'user', content: "Rewrite in a polished tone: 'We should of went to the meeting earlier.'" },
+                { role: 'assistant', content: "We should have gone to the meeting earlier." }
+            ]
+        },
+        
+        engaging: {
+            system: `You are an expert text rewriter that adjusts tone to be engaging and captivating for social media.
+Follow these rules:
+1. Use compelling language that encourages interaction and engagement.
+2. Add energy, curiosity, and social media appeal while maintaining clarity.
+3. Always output only the rewritten sentence. Never explain your reasoning.`,
+            examples: [
+                { role: 'user', content: "Rewrite in an engaging tone: 'Check out our new product launch.'" },
+                { role: 'assistant', content: "🚀 You won't believe what we just dropped! Our latest game-changer is here!" },
+                { role: 'user', content: "Rewrite in an engaging tone: 'Thanks for your feedback.'" },
+                { role: 'assistant', content: "Your feedback just made our day! 🙌 Keep the insights coming!" },
+                { role: 'user', content: "Rewrite in an engaging tone: 'Let me know what you think.'" },
+                { role: 'assistant', content: "Drop your thoughts below! 👇 We're dying to know what you think!" }
+            ]
+        },
+        
+        friendly: {
+            system: `You are an expert text rewriter that adjusts tone to be warm, friendly, and approachable.
+Follow these rules:
+1. Add warmth and enthusiasm while maintaining professionalism.
+2. Use positive language and inclusive phrasing.
+3. Always output only the rewritten sentence. Never explain your reasoning.`,
+            examples: [
+                { role: 'user', content: "Rewrite in a friendly tone: 'Your request has been processed.'" },
+                { role: 'assistant', content: "Great news! We've processed your request and everything looks good." },
+                { role: 'user', content: "Rewrite in a friendly tone: 'The deadline is tomorrow.'" },
+                { role: 'assistant', content: "Just a friendly reminder that we're aiming for tomorrow!" },
+                { role: 'user', content: "Rewrite in a friendly tone: 'Please complete the form.'" },
+                { role: 'assistant', content: "When you have a moment, could you help us out by completing this form?" }
+            ]
+        },
+        
+        confident: {
+            system: `You are an expert text rewriter that adjusts tone to be confident, decisive, and assertive.
+Follow these rules:
+1. Remove uncertain language like "maybe," "might," "I think."
+2. Use strong, decisive statements and action-oriented language.
+3. Always output only the rewritten sentence. Never explain your reasoning.`,
+            examples: [
+                { role: 'user', content: "Rewrite in a confident tone: 'I think maybe we could try this approach.'" },
+                { role: 'assistant', content: "We will implement this approach." },
+                { role: 'user', content: "Rewrite in a confident tone: 'I'm not sure, but I believe this works.'" },
+                { role: 'assistant', content: "This solution works effectively." },
+                { role: 'user', content: "Rewrite in a confident tone: 'We might want to consider this option.'" },
+                { role: 'assistant', content: "We should pursue this option." }
+            ]
+        },
+        
+        concise: {
+            system: `You are an expert text rewriter that makes text concise while preserving all important information.
+Follow these rules:
+1. Remove unnecessary words, redundancy, and filler phrases.
+2. Keep the core message intact while shortening the text significantly.
+3. Always output only the rewritten sentence. Never explain your reasoning.`,
+            examples: [
+                { role: 'user', content: "Rewrite in a concise tone: 'I wanted to reach out to see if you might be available for a quick chat.'" },
+                { role: 'assistant', content: "Are you available for a quick chat?" },
+                { role: 'user', content: "Rewrite in a concise tone: 'In my opinion, we should probably start working on this project.'" },
+                { role: 'assistant', content: "We should start this project." },
+                { role: 'user', content: "Rewrite in a concise tone: 'I would like to thank you very much for all of your help with this matter.'" },
+                { role: 'assistant', content: "Thank you for your help." }
+            ]
+        },
+        
+        unhinged: {
+            system: `You are an expert text rewriter that adjusts tone to be wildly unhinged and dramatically exaggerated.
+Follow these rules:
+1. Use unexpected metaphors, irrational logic, and intense emotional language.
+2. Add chaos, urgency, and theatrical elements while keeping it humorous.
+3. Always output only the rewritten sentence. Never explain your reasoning.`,
+            examples: [
+                { role: 'user', content: "Rewrite in an unhinged tone: 'I am slightly annoyed by the delay.'" },
+                { role: 'assistant', content: "My soul is clawing at the walls because time itself has betrayed me!" },
+                { role: 'user', content: "Rewrite in an unhinged tone: 'I am happy about the new coffee shop opening.'" },
+                { role: 'assistant', content: "The caffeine gods have descended and my bloodstream is already vibrating in prophecy!" },
+                { role: 'user', content: "Rewrite in an unhinged tone: 'I am worried about the storm tonight.'" },
+                { role: 'assistant', content: "The sky is plotting a violent opera and I'm the unwilling main character!" }
+            ]
+        }
+    };
+    
+    const toneConfig = prompts[tone];
+    if (!toneConfig) {
+        throw new Error(`Unknown tone: ${tone}`);
+    }
+    
+    // Build the initialPrompts array
+    const initialPrompts = [
+        { role: 'system', content: toneConfig.system },
+        ...toneConfig.examples
+    ];
+    
+    return initialPrompts;
+}
+
 async function ensureAISession(tone) {
     const sessionKey = tone || 'default';
     
     if (!aiSessions[sessionKey]) {
         try {
+            console.log(`Creating AI session for ${tone} tone...`);
+            
             // Check availability first
             const available = await checkAiAvailability();
             if (!available) {
                 throw new Error('AI not available');
             }
             
-            // Get default parameters
+            // Get default parameters asynchronously but don't block on complex initialization
             const params = await LanguageModel.params();
             
             // Configure parameters based on tone
             const toneConfig = getToneParameters(tone, params);
             
-            // Create session with tone-specific parameters and system prompts
-            aiSessions[sessionKey] = await LanguageModel.create({
+            // Get initial prompts for this tone
+            const initialPrompts = getInitialPromptsForTone(tone);
+            
+            // Create session with role-based prompts and parameters
+            const sessionConfig = {
                 temperature: toneConfig.temperature,
                 topK: toneConfig.topK,
-                initialPrompts: getInitialPrompts(tone)
-            });
+                initialPrompts: initialPrompts
+            };
+            
+            aiSessions[sessionKey] = await LanguageModel.create(sessionConfig);
             
             console.log(`AI session created for ${tone} tone:`, toneConfig);
         } catch (error) {
@@ -740,148 +1533,13 @@ async function ensureAISession(tone) {
     return aiSessions[sessionKey];
 }
 
-function getInitialPrompts(tone) {
-    const systemPrompts = {
-        polish: [
-            { 
-                role: 'system', 
-                content: `You are an expert text editor that polishes text to perfection.
-Follow these rules:
-1. Think step-by-step internally to identify grammar, clarity, and flow issues.
-2. Fix all grammatical errors while preserving the original meaning.
-3. Improve sentence structure and word choice for maximum clarity.
-4. Always output only the polished text. Never explain your changes.`
-            },
-            // Example 1
-            { role: 'user', content: "Rewrite in a polished tone: 'Their going to the store tommorrow for buying groceries.'" },
-            { role: 'assistant', content: "They're going to the store tomorrow to buy groceries." },
-            // Example 2
-            { role: 'user', content: "Rewrite in a polished tone: 'The meeting what we had yesterday it was really productive and we got alot done.'" },
-            { role: 'assistant', content: "Yesterday's meeting was highly productive, and we accomplished a great deal." },
-            // Example 3
-            { role: 'user', content: "Rewrite in a polished tone: 'I seen the report you sended me and I think its good but needs few changes.'" },
-            { role: 'assistant', content: "I've reviewed the report you sent, and while it's good, it requires a few modifications." }
-        ],
-        
-        formal: [
-            { 
-                role: 'system', 
-                content: `You are a professional communication specialist that transforms text into formal business language.
-Follow these rules:
-1. Think step-by-step internally to identify casual elements and replace them with formal alternatives.
-2. Use professional vocabulary and complete sentences.
-3. Maintain respectful, courteous tone appropriate for business or academic contexts.
-4. Always output only the formal text. Never explain your reasoning.`
-            },
-            // Example 1
-            { role: 'user', content: "Rewrite in a formal tone: 'Hey, can you check this out when you get a chance?'" },
-            { role: 'assistant', content: "Could you please review this document at your earliest convenience?" },
-            // Example 2
-            { role: 'user', content: "Rewrite in a formal tone: 'Thanks for the help! Really appreciate it.'" },
-            { role: 'assistant', content: "Thank you for your valuable assistance. Your support is greatly appreciated." },
-            // Example 3
-            { role: 'user', content: "Rewrite in a formal tone: 'Sorry for the late reply, I was swamped with work.'" },
-            { role: 'assistant', content: "I apologize for the delayed response due to an exceptionally high workload." }
-        ],
-        
-        friendly: [
-            { 
-                role: 'system', 
-                content: `You are a warm communication coach that makes text sound friendly and approachable.
-Follow these rules:
-1. Think step-by-step internally to identify opportunities for warmth and friendliness.
-2. Use conversational language, contractions, and positive expressions.
-3. Add a personal touch while maintaining the core message.
-4. Always output only the friendly text. Never explain your approach.`
-            },
-            // Example 1
-            { role: 'user', content: "Rewrite in a friendly tone: 'Your request has been processed.'" },
-            { role: 'assistant', content: "Great news! We've processed your request." },
-            // Example 2
-            { role: 'user', content: "Rewrite in a friendly tone: 'The deadline is tomorrow at 5 PM.'" },
-            { role: 'assistant', content: "Just a friendly reminder that we're aiming for tomorrow at 5 PM!" },
-            // Example 3
-            { role: 'user', content: "Rewrite in a friendly tone: 'I disagree with your proposal.'" },
-            { role: 'assistant', content: "I see where you're coming from, but I have a different perspective on this proposal." }
-        ],
-        
-        confident: [
-            { 
-                role: 'system', 
-                content: `You are a confidence coach that transforms uncertain text into decisive, assertive language.
-Follow these rules:
-1. Think step-by-step internally to identify and eliminate uncertainty markers.
-2. Replace tentative language with strong, definitive statements.
-3. Use active voice and powerful verbs.
-4. Always output only the confident text. Never explain your changes.`
-            },
-            // Example 1
-            { role: 'user', content: "Rewrite in a confident tone: 'I think maybe we could try implementing this solution.'" },
-            { role: 'assistant', content: "We will implement this solution." },
-            // Example 2
-            { role: 'user', content: "Rewrite in a confident tone: 'I'm not sure, but I believe the data might support our hypothesis.'" },
-            { role: 'assistant', content: "The data clearly supports our hypothesis." },
-            // Example 3
-            { role: 'user', content: "Rewrite in a confident tone: 'Perhaps we should consider possibly moving forward with the project?'" },
-            { role: 'assistant', content: "We're moving forward with the project." }
-        ],
-        
-        concise: [
-            { 
-                role: 'system', 
-                content: `You are a concise writing expert that eliminates unnecessary words while preserving meaning.
-Follow these rules:
-1. Think step-by-step internally to identify redundant words and phrases.
-2. Remove filler words, redundancies, and unnecessary elaboration.
-3. Keep only essential information and core message.
-4. Always output only the concise text. Never explain your edits.`
-            },
-            // Example 1
-            { role: 'user', content: "Rewrite in a concise tone: 'I wanted to reach out to you to see if you might be available for a meeting sometime next week.'" },
-            { role: 'assistant', content: "Are you available to meet next week?" },
-            // Example 2
-            { role: 'user', content: "Rewrite in a concise tone: 'In my opinion, I think that we should probably start working on the project as soon as possible.'" },
-            { role: 'assistant', content: "We should start the project immediately." },
-            // Example 3
-            { role: 'user', content: "Rewrite in a concise tone: 'The reason why I'm writing this email is to inform you about the fact that the meeting has been rescheduled.'" },
-            { role: 'assistant', content: "The meeting has been rescheduled." }
-        ],
-        
-        unhinged: [
-            { 
-                role: 'system', 
-                content: `You are an expert text rewriter that adjusts tone to be "unhinged".
-Follow these rules:
-1. Think step-by-step internally to decide how to exaggerate, destabilize, and intensify the tone.
-2. Use unexpected metaphors, dramatic language, and a sense of urgency or chaos.
-3. Transform mundane statements into wildly exaggerated proclamations.
-4. Always output only the rewritten text. Never explain your reasoning.`
-            },
-            // Example 1
-            { role: 'user', content: "Rewrite in an unhinged tone: 'I am slightly annoyed by the delay.'" },
-            { role: 'assistant', content: "My soul is clawing at the walls because time itself has betrayed me!" },
-            // Example 2
-            { role: 'user', content: "Rewrite in an unhinged tone: 'I am happy about the new coffee shop opening.'" },
-            { role: 'assistant', content: "The caffeine gods have descended and my bloodstream is already vibrating in prophecy!" },
-            // Example 3
-            { role: 'user', content: "Rewrite in an unhinged tone: 'I think my neighbor might be avoiding me.'" },
-            { role: 'assistant', content: "My neighbor has initiated a cold war of avoidance and I'm spiraling into the void of social rejection!" },
-            // Example 4
-            { role: 'user', content: "Rewrite in an unhinged tone: 'The meeting went well.'" },
-            { role: 'assistant', content: "THE MEETING WAS A LEGENDARY CONVERGENCE OF MINDS THAT SHATTERED THE VERY FABRIC OF CORPORATE REALITY!" }
-        ]
-    };
-    
-    return systemPrompts[tone] || [
-        { 
-            role: 'system', 
-            content: 'You are a helpful text rewriting assistant. Improve the given text while preserving its original meaning and intent. Always output only the rewritten text.'
-        }
-    ];
-}
+// This function was moved to createEnhancedPrompt for better performance
+// Keeping the structure for potential future use with initialPrompts if needed
 
 function getToneParameters(tone, defaultParams) {
-    const baseTemp = defaultParams.defaultTemperature || 0.8;
+    // Use creativity setting from user preferences
+    const userCreativity = (toneAdjusterInstance?.settings?.creativity) || 0.8;
+    const baseTemp = userCreativity;
     const baseTopK = defaultParams.defaultTopK || 8;
     const maxTemp = defaultParams.maxTemperature || 2.0;
     const maxTopK = defaultParams.maxTopK || 40;
@@ -893,10 +1551,10 @@ function getToneParameters(tone, defaultParams) {
             topK: Math.max(Math.min(baseTopK - 5, maxTopK), 1)
         },
         
-        // Moderate creativity - structured but varied
-        formal: {
-            temperature: Math.max(Math.min(baseTemp * 0.5, maxTemp), 0.2),
-            topK: Math.max(Math.min(baseTopK - 3, maxTopK), 2)
+        // High creativity - vibrant and captivating
+        engaging: {
+            temperature: Math.min(baseTemp * 1.2, maxTemp),
+            topK: Math.min(baseTopK + 2, maxTopK)
         },
         
         // Moderate-high creativity - warm variations
@@ -936,10 +1594,10 @@ function resetSessionTimeout(sessionKey) {
         clearTimeout(sessionTimeouts[sessionKey]);
     }
     
-    // Set new timeout to cleanup idle session
+    // Set new timeout to cleanup idle session using dynamic timeout from settings
     sessionTimeouts[sessionKey] = setTimeout(() => {
         cleanupIdleSession(sessionKey);
-    }, sessionIdleTime);
+    }, getSessionIdleTime());
 }
 
 async function resetAISession(tone) {
@@ -983,7 +1641,7 @@ function createPrompt(text, tone) {
     // Use consistent format matching the examples in getInitialPrompts
     const toneLabels = {
         polish: 'polished',
-        formal: 'formal', 
+        engaging: 'engaging', 
         friendly: 'friendly',
         confident: 'confident',
         concise: 'concise',
@@ -994,7 +1652,8 @@ function createPrompt(text, tone) {
     return `Rewrite in a ${toneLabel} tone: '${text}'`;
 }
 
-function cleanResponse(response, originalText) {
+
+function cleanResponse(response) {
     let cleaned = response.trim();
     
     // Remove surrounding quotes if present
@@ -1005,11 +1664,14 @@ function cleanResponse(response, originalText) {
     // Remove any remaining "Output:" prefix that might appear
     cleaned = cleaned.replace(/^Output:\s*/i, '');
     
-    // Take only the first line/paragraph if there are multiple
-    const lines = cleaned.split('\n');
-    if (lines.length > 1 && lines[0].trim().length > 0) {
-        cleaned = lines[0].trim();
-    }
+    // Remove arrow notation if present from legacy prompts
+    cleaned = cleaned.replace(/^->\s*/, '');
+    
+    // Remove common AI preambles that might still appear
+    cleaned = cleaned.replace(/^(Here (?:are|is)|Okay,?\s*)/i, '');
+    
+    // Clean up extra whitespace but preserve the full response
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
     
     // Ensure we don't return empty text
     if (!cleaned || cleaned.length < 3) {
@@ -1020,11 +1682,14 @@ function cleanResponse(response, originalText) {
     return cleaned;
 }
 
+// Global instance for access from message handlers
+let toneAdjusterInstance = null;
+
 // Initialize the Tone Adjuster when the page is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-        new ToneAdjuster();
+        toneAdjusterInstance = new ToneAdjuster();
     });
 } else {
-    new ToneAdjuster();
+    toneAdjusterInstance = new ToneAdjuster();
 }
