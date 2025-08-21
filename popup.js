@@ -71,39 +71,24 @@ class PopupManager {
     }
 
     /**
-     * Check Chrome AI API availability
+     * Check Chrome AI API availability by delegating to content script
      */
     async checkAIStatus() {
         this.updateStatus('loading', 'Checking AI availability...', 'Connecting to Chrome AI');
 
         try {
-            // Check if LanguageModel API is available (global object)
-            if (typeof LanguageModel === 'undefined') {
-                throw new Error('Chrome AI LanguageModel API not available');
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (!tab) throw new Error("No active tab found.");
+
+            const response = await chrome.tabs.sendMessage(tab.id, { action: 'checkAiAvailability' });
+
+            if (response && response.available) {
+                this.aiStatus = 'available';
+                this.updateStatus('success', 'AI Ready', 'Chrome AI is available and ready to use.');
+                this.showActionsSection();
+            } else {
+                throw new Error('AI is not available on the current page or on this device.');
             }
-
-            // Check model availability
-            const capabilities = await LanguageModel.availability();
-            console.log('AI capabilities check:', capabilities);
-            
-            if (capabilities === 'no') {
-                throw new Error('Chrome AI is not available on this device');
-            }
-
-            if (capabilities === 'after-download') {
-                this.updateStatus('warning', 'AI model downloading...', 'Chrome is downloading the AI model. This may take a few minutes.');
-                this.showDownloadProgress();
-                return;
-            }
-
-            // Try to create a test session
-            const session = await LanguageModel.create();
-            await session.destroy();
-
-            this.aiStatus = 'available';
-            this.updateStatus('success', 'AI Ready', 'Chrome AI is available and ready to adjust your text tone');
-            this.showActionsSection();
-
         } catch (error) {
             console.error('AI status check failed:', error);
             this.aiStatus = 'unavailable';

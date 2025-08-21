@@ -390,4 +390,95 @@
         color: #9ae6b4;
         border-color: #38a169;
     }
+    
+    .undo-btn, .regenerate-btn {
+        background: #4a5568;
+        border-color: #5a6c7d;
+        color: #e2e8f0;
+    }
+    
+    .undo-btn:hover {
+        background: #5a6c7d;
+        border-color: #6b7f95;
+    }
+    
+    .regenerate-btn:hover {
+        background: #5a6c7d;
+        border-color: #6b7f95;
+    }
+}
+
+/* Undo feedback styling */
+.tone-adjuster-success.undo-feedback {
+    background: #5048e5;
+    color: white;
+    border-color: #6366f1;
+}
+
+/* Post-adjustment actions */
+.post-adjustment-actions {
+    padding: 12px;
+    display: flex;
+    gap: 8px;
+    border-top: 1px solid #f0f2f5;
+}
+
+.undo-btn, .regenerate-btn {
+    flex: 1;
+    padding: 6px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #374151;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.undo-btn:hover {
+    background: #f9fafb;
+    border-color: #6366f1;
+    color: #6366f1;
+}
+
+.regenerate-btn:hover {
+    background: #f9fafb;
+    border-color: #10b981;
+    color: #10b981;
+}
+
+/* Floating icon */
+.tone-adjuster-floating-icon {
+    position: absolute;
+    z-index: 2147483647;
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    user-select: none;
+    border: 2px solid #ffffff;
+}
+
+.tone-adjuster-floating-icon.visible {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.tone-adjuster-floating-icon:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }

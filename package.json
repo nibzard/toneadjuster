@@ -8,13 +8,17 @@
     "build": "rollup -c rollup.config.mjs",
     "dev": "rollup -c rollup.config.mjs -w"
   },
-  "keywords": ["chrome-extension", "ai", "text-processing", "tone-adjustment"],
+  "keywords": [
+    "chrome-extension",
+    "ai",
+    "text-processing",
+    "tone-adjustment"
+  ],
   "license": "MIT",
   "devDependencies": {
-    "dompurify": "3.2.4",
-    "marked": "14.1.2",
     "@rollup/plugin-commonjs": "26.0.1",
     "@rollup/plugin-node-resolve": "15.2.3",
+    "dompurify": "3.2.4",
     "rollup": "4.22.4",
     "rollup-plugin-copy": "3.5.0"
   }

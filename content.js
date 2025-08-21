@@ -210,8 +210,8 @@ class ToneAdjuster {
         this.targetElement = targetElement;
         this.selectionRange = range.cloneRange();
         
-        // Show tooltip near the selection
-        this.showTooltip(range);
+        // Show floating icon first, then expand to tooltip on interaction
+        this.showFloatingIcon(range);
     }
     
     getEditableElement(node) {
@@ -242,6 +242,90 @@ class ToneAdjuster {
         }
         
         return null;
+    }
+    
+    showFloatingIcon(range) {
+        // Create floating icon element
+        this.floatingIcon = document.createElement('div');
+        this.floatingIcon.className = 'tone-adjuster-floating-icon';
+        this.floatingIcon.innerHTML = '🎨';
+        this.floatingIcon.title = 'Tone Adjuster - Click to adjust tone';
+        
+        // Add to DOM
+        document.body.appendChild(this.floatingIcon);
+        
+        // Position icon
+        this.positionFloatingIcon(range);
+        
+        // Attach click listener to expand to full tooltip
+        this.floatingIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.hideFloatingIcon();
+            this.showTooltip(range);
+        });
+        
+        // Auto-hide after 3 seconds if not interacted with
+        this.iconTimeout = setTimeout(() => {
+            if (this.floatingIcon) {
+                this.hideFloatingIcon();
+            }
+        }, 3000);
+        
+        // Animate in
+        requestAnimationFrame(() => {
+            if (this.floatingIcon) {
+                this.floatingIcon.classList.add('visible');
+            }
+        });
+    }
+    
+    positionFloatingIcon(range) {
+        if (!this.floatingIcon) return;
+        
+        const rect = range.getBoundingClientRect();
+        const icon = this.floatingIcon;
+        
+        // Position to the right of the selection
+        let left = rect.right + window.scrollX + 8;
+        let top = rect.top + window.scrollY + (rect.height / 2) - 12; // Center vertically
+        
+        // Ensure icon stays within viewport
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        // Horizontal bounds checking
+        if (left + 24 > viewportWidth - 10) {
+            // Show on the left side instead
+            left = rect.left + window.scrollX - 32;
+        }
+        
+        // Vertical bounds checking
+        if (top < 10) {
+            top = 10;
+        } else if (top + 24 > viewportHeight - 10) {
+            top = viewportHeight - 34;
+        }
+        
+        icon.style.left = `${left}px`;
+        icon.style.top = `${top}px`;
+    }
+    
+    hideFloatingIcon() {
+        if (this.floatingIcon) {
+            this.floatingIcon.classList.remove('visible');
+            
+            setTimeout(() => {
+                if (this.floatingIcon && this.floatingIcon.parentNode) {
+                    this.floatingIcon.parentNode.removeChild(this.floatingIcon);
+                }
+                this.floatingIcon = null;
+            }, 200);
+        }
+        
+        if (this.iconTimeout) {
+            clearTimeout(this.iconTimeout);
+            this.iconTimeout = null;
+        }
     }
     
     showTooltip(range) {
@@ -519,11 +603,13 @@ class ToneAdjuster {
         // Store adjusted text for potential acceptance
         this.adjustedText = adjustedText;
         this.adjustedTone = tone;
+        this.originalText = this.selectedText; // Store for undo
         
-        // Check if auto-accept is enabled
+        // Check if auto-accept is enabled (instant mode)
         if (this.settings && this.settings.autoAccept) {
             console.log('Auto-accepting adjustment due to user settings');
             this.acceptAdjustment();
+            this.showPostAdjustmentUI();
             return;
         }
         
@@ -599,14 +685,153 @@ class ToneAdjuster {
         try {
             // Replace the selected text with adjusted text
             this.replaceSelectedText(this.adjustedText);
-            this.hideTooltip();
             
-            // Show success feedback
-            this.showSuccessFeedback();
+            // If not in instant mode, hide tooltip and show success
+            if (!this.settings?.autoAccept) {
+                this.hideTooltip();
+                this.showSuccessFeedback();
+            }
         } catch (error) {
             console.error('Failed to replace text:', error);
             this.showError('Failed to replace text');
         }
+    }
+    
+    showPostAdjustmentUI() {
+        if (!this.tooltip) return;
+        
+        // Clear existing content safely
+        const container = this.tooltip.querySelector('div');
+        if (container) {
+            container.textContent = '';
+        }
+        
+        // Create post-adjustment UI
+        const header = document.createElement('div');
+        header.className = 'tooltip-header';
+        
+        const title = document.createElement('span');
+        title.className = 'tooltip-title';
+        title.textContent = `✓ ${this.adjustedTone} tone applied`;
+        
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'close-btn';
+        closeBtn.title = 'Close';
+        closeBtn.innerHTML = '&times;';
+        
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+        
+        // Create actions container
+        const actionsContainer = document.createElement('div');
+        actionsContainer.className = 'post-adjustment-actions';
+        
+        const undoBtn = document.createElement('button');
+        undoBtn.className = 'undo-btn';
+        undoBtn.textContent = '↶ Undo';
+        undoBtn.title = 'Restore original text';
+        
+        const regenerateBtn = document.createElement('button');
+        regenerateBtn.className = 'regenerate-btn';
+        regenerateBtn.textContent = '🔄 Re-generate';
+        regenerateBtn.title = 'Try a different variation';
+        
+        actionsContainer.appendChild(undoBtn);
+        actionsContainer.appendChild(regenerateBtn);
+        
+        // Assemble UI
+        if (container) {
+            container.appendChild(header);
+            container.appendChild(actionsContainer);
+        }
+        
+        // Attach event listeners
+        closeBtn.addEventListener('click', () => this.hideTooltip());
+        undoBtn.addEventListener('click', () => this.undoAdjustment());
+        regenerateBtn.addEventListener('click', () => this.regenerateAdjustment());
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            if (this.tooltip) {
+                this.hideTooltip();
+            }
+        }, 5000);
+    }
+    
+    undoAdjustment() {
+        if (!this.originalText || !this.targetElement) return;
+        
+        try {
+            // Replace with original text
+            this.replaceSelectedText(this.originalText);
+            this.hideTooltip();
+            
+            // Show undo feedback
+            this.showUndoFeedback();
+        } catch (error) {
+            console.error('Failed to undo adjustment:', error);
+        }
+    }
+    
+    regenerateAdjustment() {
+        if (!this.adjustedTone) return;
+        
+        // Hide the post-adjustment UI and restart the process
+        this.hideTooltip();
+        
+        // Re-trigger the tone adjustment for the same tone
+        setTimeout(() => {
+            this.adjustTone(this.adjustedTone);
+        }, 100);
+    }
+    
+    showUndoFeedback() {
+        const feedback = document.createElement('div');
+        feedback.className = 'tone-adjuster-success undo-feedback';
+        
+        const undoIcon = document.createElement('span');
+        undoIcon.className = 'success-icon';
+        undoIcon.textContent = '↶';
+        
+        const undoText = document.createElement('span');
+        undoText.className = 'success-text';
+        undoText.textContent = 'Changes undone';
+        
+        feedback.appendChild(undoIcon);
+        feedback.appendChild(undoText);
+        
+        document.body.appendChild(feedback);
+        
+        // Position near the target element or center
+        if (this.targetElement && document.contains(this.targetElement)) {
+            try {
+                const rect = this.targetElement.getBoundingClientRect();
+                feedback.style.left = `${rect.left + window.scrollX}px`;
+                feedback.style.top = `${rect.bottom + window.scrollY + 5}px`;
+            } catch (error) {
+                feedback.style.left = '50%';
+                feedback.style.top = '100px';
+                feedback.style.transform = 'translateX(-50%)';
+            }
+        } else {
+            feedback.style.left = '50%';
+            feedback.style.top = '100px';
+            feedback.style.transform = 'translateX(-50%)';
+        }
+        
+        // Animate
+        requestAnimationFrame(() => {
+            feedback.classList.add('visible');
+        });
+        
+        setTimeout(() => {
+            feedback.classList.remove('visible');
+            setTimeout(() => {
+                if (feedback.parentNode) {
+                    feedback.parentNode.removeChild(feedback);
+                }
+            }, 300);
+        }, 2000);
     }
     
     replaceSelectedText(newText) {
@@ -1148,6 +1373,9 @@ class ToneAdjuster {
             }, 200);
         }
         
+        // Also hide floating icon if present
+        this.hideFloatingIcon();
+        
         // Reset state
         this.currentSelection = null;
         this.selectedText = '';
@@ -1155,6 +1383,7 @@ class ToneAdjuster {
         this.selectionRange = null;
         this.adjustedText = null;
         this.adjustedTone = null;
+        this.originalText = null;
         this.isProcessing = false;
         this.tooltipInteracting = false;
     }
@@ -1279,6 +1508,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 safeResponse({ success: false, error: error.message });
             }
             return false; // Synchronous response
+        } else if (message.action === 'adjustToneFromContextMenu') {
+            // Handle tone adjustment from context menu
+            const selection = window.getSelection();
+            const selectedText = selection.toString().trim();
+
+            if (selectedText.length > 2 && toneAdjusterInstance) {
+                // Re-use the existing logic
+                toneAdjusterInstance.currentSelection = selection;
+                toneAdjusterInstance.selectedText = selectedText;
+                toneAdjusterInstance.targetElement = toneAdjusterInstance.getEditableElement(selection.getRangeAt(0).commonAncestorContainer);
+                toneAdjusterInstance.selectionRange = selection.getRangeAt(0).cloneRange();
+                
+                toneAdjusterInstance.adjustTone(message.tone);
+            }
+            // No response needed, this is a one-way command
+            return false;
         } else if (message.action === 'settingsChanged') {
             // Handle settings change notification
             console.log('Settings changed in content script:', message.settings);
@@ -1389,9 +1634,10 @@ function getInitialPromptsForTone(tone) {
         polish: {
             system: `You are an expert text rewriter that polishes text by correcting grammar, spelling, and improving clarity.
 Follow these rules:
-1. Fix grammatical errors, spelling mistakes, and improve sentence structure.
-2. Maintain the original meaning and tone while making it more polished.
-3. Always output only the rewritten sentence. Never explain your reasoning.`,
+1. First, silently correct any spelling or grammatical errors in the original text.
+2. Fix grammatical errors, spelling mistakes, and improve sentence structure.
+3. Maintain the original meaning and tone while making it more polished.
+4. Always output only the rewritten sentence. Never explain your reasoning.`,
             examples: [
                 { role: 'user', content: "Rewrite in a polished tone: 'Their going to the store tommorrow.'" },
                 { role: 'assistant', content: "They're going to the store tomorrow." },
@@ -1405,9 +1651,10 @@ Follow these rules:
         engaging: {
             system: `You are an expert text rewriter that adjusts tone to be engaging and captivating for social media.
 Follow these rules:
-1. Use compelling language that encourages interaction and engagement.
-2. Add energy, curiosity, and social media appeal while maintaining clarity.
-3. Always output only the rewritten sentence. Never explain your reasoning.`,
+1. First, silently correct any spelling or grammatical errors in the original text.
+2. Use compelling language that encourages interaction and engagement.
+3. Add energy, curiosity, and social media appeal while maintaining clarity.
+4. Always output only the rewritten sentence. Never explain your reasoning.`,
             examples: [
                 { role: 'user', content: "Rewrite in an engaging tone: 'Check out our new product launch.'" },
                 { role: 'assistant', content: "🚀 You won't believe what we just dropped! Our latest game-changer is here!" },
@@ -1421,9 +1668,10 @@ Follow these rules:
         friendly: {
             system: `You are an expert text rewriter that adjusts tone to be warm, friendly, and approachable.
 Follow these rules:
-1. Add warmth and enthusiasm while maintaining professionalism.
-2. Use positive language and inclusive phrasing.
-3. Always output only the rewritten sentence. Never explain your reasoning.`,
+1. First, silently correct any spelling or grammatical errors in the original text.
+2. Add warmth and enthusiasm while maintaining professionalism.
+3. Use positive language and inclusive phrasing.
+4. Always output only the rewritten sentence. Never explain your reasoning.`,
             examples: [
                 { role: 'user', content: "Rewrite in a friendly tone: 'Your request has been processed.'" },
                 { role: 'assistant', content: "Great news! We've processed your request and everything looks good." },
@@ -1437,9 +1685,10 @@ Follow these rules:
         confident: {
             system: `You are an expert text rewriter that adjusts tone to be confident, decisive, and assertive.
 Follow these rules:
-1. Remove uncertain language like "maybe," "might," "I think."
-2. Use strong, decisive statements and action-oriented language.
-3. Always output only the rewritten sentence. Never explain your reasoning.`,
+1. First, silently correct any spelling or grammatical errors in the original text.
+2. Remove uncertain language like "maybe," "might," "I think."
+3. Use strong, decisive statements and action-oriented language.
+4. Always output only the rewritten sentence. Never explain your reasoning.`,
             examples: [
                 { role: 'user', content: "Rewrite in a confident tone: 'I think maybe we could try this approach.'" },
                 { role: 'assistant', content: "We will implement this approach." },
@@ -1453,9 +1702,10 @@ Follow these rules:
         concise: {
             system: `You are an expert text rewriter that makes text concise while preserving all important information.
 Follow these rules:
-1. Remove unnecessary words, redundancy, and filler phrases.
-2. Keep the core message intact while shortening the text significantly.
-3. Always output only the rewritten sentence. Never explain your reasoning.`,
+1. First, silently correct any spelling or grammatical errors in the original text.
+2. Remove unnecessary words, redundancy, and filler phrases.
+3. Keep the core message intact while shortening the text significantly.
+4. Always output only the rewritten sentence. Never explain your reasoning.`,
             examples: [
                 { role: 'user', content: "Rewrite in a concise tone: 'I wanted to reach out to see if you might be available for a quick chat.'" },
                 { role: 'assistant', content: "Are you available for a quick chat?" },
@@ -1469,9 +1719,10 @@ Follow these rules:
         unhinged: {
             system: `You are an expert text rewriter that adjusts tone to be wildly unhinged and dramatically exaggerated.
 Follow these rules:
-1. Use unexpected metaphors, irrational logic, and intense emotional language.
-2. Add chaos, urgency, and theatrical elements while keeping it humorous.
-3. Always output only the rewritten sentence. Never explain your reasoning.`,
+1. First, silently correct any spelling or grammatical errors in the original text.
+2. Use unexpected metaphors, irrational logic, and intense emotional language.
+3. Add chaos, urgency, and theatrical elements while keeping it humorous.
+4. Always output only the rewritten sentence. Never explain your reasoning.`,
             examples: [
                 { role: 'user', content: "Rewrite in an unhinged tone: 'I am slightly annoyed by the delay.'" },
                 { role: 'assistant', content: "My soul is clawing at the walls because time itself has betrayed me!" },

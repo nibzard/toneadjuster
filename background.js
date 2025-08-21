@@ -195,59 +195,13 @@ class ToneAdjuster {
 
   async handleContextMenuClick(info, tab) {
     const toneType = info.menuItemId.replace('tone-', '');
-    
-    if (!this.toneOptions[toneType]) return;
+    if (!this.toneOptions[toneType] || !tab.id) return;
 
-    try {
-      // Get selected text
-      const selectedText = info.selectionText;
-      if (!selectedText || selectedText.trim().length === 0) {
-        console.warn('No text selected');
-        return;
-      }
-
-      // Rewrite text with selected tone via content script
-      const response = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Context menu timeout - content script did not respond'));
-        }, 30000); // 30 second timeout for context menu operations
-
-        chrome.tabs.sendMessage(tab.id, {
-          action: 'rewriteTextWithAI',
-          text: selectedText,
-          tone: toneType
-        }, (response) => {
-          clearTimeout(timeout);
-          if (chrome.runtime.lastError) {
-            console.error('Chrome runtime error:', chrome.runtime.lastError.message);
-            reject(new Error(chrome.runtime.lastError.message));
-          } else if (!response) {
-            reject(new Error('No response received from content script'));
-          } else {
-            resolve(response);
-          }
-        });
-      });
-
-      const rewrittenText = response?.success ? response.adjustedText : null;
-      
-      if (rewrittenText) {
-        // Send result to content script
-        chrome.tabs.sendMessage(tab.id, {
-          action: 'replaceText',
-          originalText: selectedText,
-          newText: rewrittenText,
-          tone: toneType
-        });
-      }
-    } catch (error) {
-      console.error('Error handling context menu click:', error);
-      // Send error to content script
-      chrome.tabs.sendMessage(tab.id, {
-        action: 'error',
-        message: 'Failed to adjust text tone'
-      });
-    }
+    // Simply forward the request to the content script to handle everything
+    chrome.tabs.sendMessage(tab.id, {
+      action: 'adjustToneFromContextMenu',
+      tone: toneType
+    });
   }
 
   /**
